@@ -3,15 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <title>Mudrā | Real-Time Translator</title>
-    <!-- MediaPipe Machine Learning CDNs -->
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #c9d1d9; text-align: center; margin: 0; padding: 20px;}
         .video-container { position: relative; width: 640px; height: 480px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        /* The video and canvas are layered on top of each other and mirrored */
         video, canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform: scaleX(-1); }
         .ui-panel { max-width: 600px; margin: 30px auto; padding: 20px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
         .translation-box { font-size: 2.5em; font-weight: bold; color: #58a6ff; margin: 10px 0; text-transform: capitalize; }
@@ -22,8 +19,7 @@
     <h2>Mudrā Translation Engine</h2>
     
     <div class="video-container">
-        <!-- Hidden video element feeds the visible canvas -->
-        <video class="input_video" autoplay playsinline></video>
+        <video class="input_video" autoplay playsinline style="display:none;"></video>
         <canvas class="output_canvas" width="640" height="480"></canvas>
     </div>
     
@@ -39,7 +35,9 @@
         const translationText = document.getElementById('translation_text');
         const confidenceScore = document.getElementById('confidence_score');
 
-        // 1. Establish the WebSocket connection to our Daphne Server
+        // Safely resolve MediaPipe shortcuts from window namespace
+        const mpHands = window;
+        
         const socket = new WebSocket('ws://' + window.location.host + '/ws/translate/');
         
         socket.onmessage = (event) => {
@@ -52,65 +50,68 @@
 
         let coordinateSequence = [];
 
-        // 2. Define what happens every time MediaPipe finds a hand
         function onResults(results) {
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
             canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
             
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                // Grab the primary hand detected
                 const landmarks = results.multiHandLandmarks[0];
                 
-                // Draw the skeletal mapping on the screen
-                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 4});
-                drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 2, radius: 3});
+                // Using explicit namespace references to avoid ReferenceErrors
+                if (window.drawConnectors && window.HAND_CONNECTIONS) {
+                    window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 4});
+                    window.drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 2, radius: 3});
+                }
                 
-                // Flatten the 21 landmarks into a single array of 63 coordinates (x,y,z)
                 let frameCoords = [];
                 for (let i = 0; i < landmarks.length; i++) {
                     frameCoords.push(landmarks[i].x, landmarks[i].y, landmarks[i].z);
                 }
                 
-                // Append to our running 30-frame timeline
                 coordinateSequence.push(frameCoords);
                 if (coordinateSequence.length > 30) {
-                    coordinateSequence.shift(); // Remove the oldest frame
+                    coordinateSequence.shift();
                 }
                 
-                // Once we have a full 30-frame window, fire it to the Django backend!
                 if (coordinateSequence.length === 30 && socket.readyState === WebSocket.OPEN) {
                     socket.send(JSON.stringify({ 'coordinates': coordinateSequence }));
                 }
-            } else {
-                // Optional: Clear the buffer if hands disappear
-                // coordinateSequence = []; 
             }
             canvasCtx.restore();
         }
 
-        // 3. Initialize the MediaPipe Hands model
-        const hands = new Hands({locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-        }});
-        
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.7,
-            minTrackingConfidence: 0.7
-        });
-        hands.onResults(onResults);
+        // Safely instantiate the Hands instance
+        const HandsClass = window.Hands || (window.mpHands ? window.mpHands.Hands : null);
+        if (!HandsClass) {
+            console.error("MediaPipe Hands library failed to load via CDN resources.");
+            translationText.innerText = "Error: Library Load Failure";
+        } else {
+            const hands = new HandsClass({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }});
+            
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.7
+            });
+            hands.onResults(onResults);
 
-        // 4. Hook up the Webcam and start the pipeline
-        const camera = new Camera(videoElement, {
-            onFrame: async () => {
-                await hands.send({image: videoElement});
-            },  
-            width: 640,
-            height: 480
-        });
-        camera.start();
+            if (window.Camera) {
+                const camera = new window.Camera(videoElement, {
+                    onFrame: async () => {
+                        await hands.send({image: videoElement});
+                    },
+                    width: 640,
+                    height: 480
+                });
+                camera.start();
+            } else {
+                console.error("MediaPipe Camera Utils script not found.");
+            }
+        }
     </script>
 </body>
 </html>

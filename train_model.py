@@ -7,100 +7,107 @@ from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import train_test_split
 
-# ==========================================
+# ========================================================
 # CONFIGURATION & HYPERPARAMETERS
-# ==========================================
+# ========================================================
 DATA_PATH = os.path.join('dataset')
 SEQUENCE_LENGTH = 30  # 30 frames per gesture temporal window
 DATA_POINTS_PER_FRAME = 63  # 21 landmarks * 3 coordinates (x, y, z)
 
-# Define Mudrā's vocabulary classes
-ACTIONS = np.array(['hello', 'thank_you', 'yes', 'no'])
+ACTIONS = np.array(['one', 'two', 'three'])
 label_map = {label: num for num, label in enumerate(ACTIONS)}
 
-# ==========================================
-# DATA LOADING OR MOCK GENERATION
-# ==========================================
-def load_dataset():
+def load_real_dataset():
     sequences, labels = [], []
-    real_data_found = False
+    
+    if not os.path.exists(DATA_PATH):
+        print(f"[ERROR] '{DATA_PATH}' directory not found!")
+        return None, None
 
-    # Check if dataset directory exists and has subfolders
-    if os.path.exists(DATA_PATH):
-        for action in ACTIONS:
-            action_path = os.path.join(DATA_PATH, action)
-            if os.path.exists(action_path):
-                json_files = [f for f in os.listdir(action_path) if f.endswith('.json')]
-                if json_files:
-                    real_data_found = True
-                    print(f"Loading {len(json_files)} real samples for action: '{action}'...")
-                    for file_name in json_files:
-                        with open(os.path.join(action_path, file_name), 'read') as f:
-                            data = json.load(f)
-                            # Expecting data structure to be a list of 30 frames, each containing 63 flattened points
-                            sequences.append(data)
-                            labels.append(label_map[action])
+    json_files = [f for f in os.listdir(DATA_PATH) if f.endswith('.json')]
+    print(f"Found {len(json_files)} total files in dataset directory.")
 
-    # Fallback to generating mock data if no real JSONs exist
-    if not real_data_found:
-        print("\n[!] No real JSON data found. Generating synthetic dataset to test pipeline...")
-        SAMPLES_PER_CLASS = 40  # Generate 40 fake recordings per word
+    for file_name in json_files:
+        prefix = file_name.split('_')[0]
+        if prefix not in label_map:
+            continue
+            
+        file_path = os.path.join(DATA_PATH, file_name)
         
-        for action in ACTIONS:
-            for _ in range(SAMPLES_PER_CLASS):
-                # Generate a random tensor mimicking a smooth hand movement path
-                # Base random coordinates + a small directional drift over 30 frames
-                base_motion = np.random.rand(SEQUENCE_LENGTH, DATA_POINTS_PER_FRAME)
-                drift = np.linspace(0, 0.2, SEQUENCE_LENGTH).reshape(-1, 1)
-                mock_sequence = base_motion + drift
+        try:
+            with open(file_path, 'r') as f:
+                raw_frames = json.load(f)
                 
-                sequences.append(mock_sequence.tolist())
-                labels.append(label_map[action])
+            window_sequences = []
+            
+            # Loop directly through the 30 top-level items (the frames)
+            for frame in raw_frames:
+                frame_coordinates = []
                 
+                # Unwrap the second level: grab the inner list of 21 landmarks
+                if isinstance(frame, list) and len(frame) > 0:
+                    landmarks_list = frame[0]
+                    
+                    # Loop through the 21 coordinate dictionaries
+                    if isinstance(landmarks_list, list):
+                        for landmark in landmarks_list:
+                            if isinstance(landmark, dict) and 'x' in landmark:
+                                frame_coordinates.extend([landmark['x'], landmark['y'], landmark['z']])
+                
+                # Check if this frame successfully gathered all 63 points
+                if len(frame_coordinates) == DATA_POINTS_PER_FRAME:
+                    window_sequences.append(frame_coordinates)
+            
+            # Verify the sequence matches our exact 30-frame window requirement
+            if len(window_sequences) == SEQUENCE_LENGTH:
+                sequences.append(window_sequences)
+                labels.append(label_map[prefix])
+            else:
+                print(f"[NOTE] File {file_name} only parsed {len(window_sequences)}/30 valid frames. Skipping.")
+                
+        except Exception as e:
+            print(f"[WARNING] Skipping file {file_name} due to unexpected error: {e}")
+
     return np.array(sequences), np.array(labels)
 
-# Load up our data
-X, y = load_dataset()
+# ========================================================
+# DATA PROCESSING RUNTIME
+# ========================================================
+print("Starting dataset parsing pipeline...")
+X, y = load_real_dataset()
 
-# Preprocess features and convert target labels to one-hot encoded vectors
-y = to_categorical(y, num_classes=len(ACTIONS)).astype(int)
+if X is None or len(X) == 0:
+    print("[CRITICAL] No valid coordinate sequences could be parsed. Check your dataset format!")
+    exit()
 
-# Split dataset into Training (80%) and Testing (20%) sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+print(f"\nSuccessfully processed dataset!")
+print(f"Features array (X) shape: {X.shape}") # Should be (Num_Files, 30, 63)
+print(f"Labels array (y) shape: {y.shape}")     # Should be (Num_Files,)
 
-print(f"Data processing complete.")
-print(f"Training features shape: {X_train.shape} (Samples, Frames, Coordinates)")
-print(f"Training labels shape: {y_train.shape}\n")
+# One-hot encode the categorical labels
+y_categorical = to_categorical(y, num_classes=len(ACTIONS))
 
-# ==========================================
-# DEFINE MUDRA'S LSTM ARCHITECTURE
-# ==========================================
+# Split into training and testing configurations (80% train, 20% validation)
+X_train, X_val, y_train, y_val = train_test_split(X, y_categorical, test_size=0.2, random_state=42)
+
+# ========================================================
+# NEURAL NETWORK TRAINING Pipeline
+# ========================================================
 model = Sequential([
-    # First LSTM layer captures sequential patterns; returns sequences to feed the next layer
     LSTM(64, return_sequences=True, activation='relu', input_shape=(SEQUENCE_LENGTH, DATA_POINTS_PER_FRAME)),
-    Dropout(0.2), # Mitigates overfitting
-    
-    # Second LSTM layer consolidates temporal trajectories into a single state vector
+    Dropout(0.2),
     LSTM(128, return_sequences=False, activation='relu'),
     Dropout(0.2),
-    
-    # Dense layers map temporal features to class categories
     Dense(64, activation='relu'),
-    Dense(len(ACTIONS), activation='softmax') # Outputs probability distribution across vocabulary
+    Dense(len(ACTIONS), activation='softmax')
 ])
 
-# Compile model with cross-entropy loss function for classification
 model.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['categorical_accuracy'])
-model.summary()
 
-# ==========================================
-# TRAIN AND SAVE THE MODEL
-# ==========================================
-print("\nStarting model training...")
-# Run for a brief 20 epochs on mock data to check compiler health
-model.fit(X_train, y_train, epochs=20, batch_size=8, validation_data=(X_test, y_test))
+print("\nBeginning real training epochs on your custom landmarks...")
+model.fit(X_train, y_train, epochs=40, batch_size=4, validation_data=(X_val, y_val))
 
-# Export trained weights so our Django consumer can pull them for real-time inference
+# Export the intelligent engine
 MODEL_NAME = 'mudra_lstm_model.h5'
 model.save(MODEL_NAME)
-print(f"\n[SUCCESS] Model successfully compiled, trained, and exported as '{MODEL_NAME}'!")
+print(f"\n[SUCCESS] Model successfully trained on real data and exported as '{MODEL_NAME}'!")
