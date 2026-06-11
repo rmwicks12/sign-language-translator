@@ -2,30 +2,228 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Mudrā | Real-Time Translator</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mudrā | Advanced Analytics Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0d1117; color: #c9d1d9; text-align: center; margin: 0; padding: 20px;}
-        .video-container { position: relative; width: 640px; height: 480px; margin: 0 auto; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
-        video, canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform: scaleX(-1); }
-        .ui-panel { max-width: 600px; margin: 30px auto; padding: 20px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; }
-        .translation-box { font-size: 2.5em; font-weight: bold; color: #58a6ff; margin: 10px 0; text-transform: capitalize; }
+        :root {
+            --bg-main: #0d1117;
+            --bg-card: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent-blue: #58a6ff;
+            --accent-green: #238636;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        header {
+            margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        header p {
+            margin: 4px 0 0 0;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        /* Split-Screen Dashboard Layout */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 24px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        .panel {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-sizing: border-box;
+        }
+
+        /* Left Pane: Camera Vision Space */
+        .vision-pane {
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            aspect-ratio: 4 / 3;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+        }
+
+        video, canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+        }
+
+        .inference-display {
+            width: 100%;
+            max-width: 640px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .translation-box {
+            font-size: 2.8rem;
+            font-weight: 700;
+            color: var(--accent-blue);
+            margin: 8px 0;
+            letter-spacing: 0.5px;
+        }
+
+        /* Right Pane: Analytics History Logs */
+        .analytics-pane {
+            min-height: 0;
+        }
+
+        .analytics-pane h2 {
+            margin: 0 0 16px 0;
+            font-size: 1.3rem;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .session-badge {
+            font-size: 0.8rem;
+            background: #1f6feb;
+            padding: 4px 10px;
+            border-radius: 20px;
+            color: #fff;
+        }
+
+        .log-table-wrapper {
+            flex: 1;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: #090d13;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        th {
+            background-color: #161b22;
+            position: sticky;
+            top: 0;
+            padding: 12px;
+            color: #fff;
+            font-weight: 600;
+            border-bottom: 2px solid var(--border-color);
+            z-index: 10;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        tr:hover td {
+            background-color: #1c2128;
+        }
+
+        .confidence-pill {
+            background: rgba(88, 166, 255, 0.15);
+            color: var(--accent-blue);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
 
-    <h2>Mudrā Translation Engine</h2>
-    
-    <div class="video-container">
-        <video class="input_video" autoplay playsinline style="display:none;"></video>
-        <canvas class="output_canvas" width="640" height="480"></canvas>
-    </div>
-    
-    <div class="ui-panel">
-        <div class="translation-box" id="translation_text">Waiting for gesture...</div>
-        <div style="color: #8b949e;">AI Confidence: <span id="confidence_score">0.0</span>%</div>
+    <header>
+        <h1>Mudrā Control Center</h1>
+        <p>Enterprise Full-Stack Sign Language Recognition Interface</p>
+    </header>
+
+    <div class="dashboard-container">
+        <div class="panel vision-pane">
+            <div class="video-container">
+                <video class="input_video" autoplay playsinline style="display:none;"></video>
+                <canvas class="output_canvas" width="640" height="480"></canvas>
+            </div>
+            
+            <div class="inference-display">
+                <div class="translation-box" id="translation_text">Waiting for connection...</div>
+                <div style="color: var(--text-muted); font-size: 1rem;">
+                    AI Confidence: <span id="confidence_score" style="color: #fff; font-weight: 600;">0.0</span>%
+                </div>
+            </div>
+        </div>
+
+        <div class="panel analytics-pane">
+            <h2>
+                Translation History 
+                <span class="session-badge" id="session_label">Connecting DB...</span>
+            </h2>
+            
+            <div class="log-table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Predicted Word</th>
+                            <th>Confidence</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log_history_rows">
+                        <tr>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 40px;">
+                                Stream tracking data to populate records...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -34,31 +232,62 @@
         const canvasCtx = canvasElement.getContext('2d');
         const translationText = document.getElementById('translation_text');
         const confidenceScore = document.getElementById('confidence_score');
+        const logHistoryRows = document.getElementById('log_history_rows');
+        const sessionLabel = document.getElementById('session_label');
 
-        // Safely resolve MediaPipe shortcuts from window namespace
-        const mpHands = window;
-        
+        let currentSessionId = null;
+        let coordinateSequence = [];
+        let isHandPresent = false;
+        let emptyFrameCount = 0;
+        let lastInferenceTime = 0;
+
+        // Establish WebSocket Connection
         const socket = new WebSocket('ws://' + window.location.host + '/ws/translate/');
         
+        socket.onopen = () => {
+            translationText.innerText = "No hands detected";
+            translationText.style.color = "var(--text-muted)";
+        };
+
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            if(data.prediction) {
+            
+            // 1. Capture Active Session ID from Backend
+            if (data.session_id) {
+                currentSessionId = data.session_id;
+                sessionLabel.innerText = `Session #${currentSessionId} (Active)`;
+                fetchLatestHistory(); 
+                return;
+            }
+            
+            // 2. Process Live ML Predictions (Ignore if hand left screen)
+            if (data.prediction) {
+                if (!isHandPresent) {
+                    return; 
+                }
+
+                translationText.style.color = "var(--accent-blue)"; 
                 translationText.innerText = data.prediction;
                 confidenceScore.innerText = (data.confidence * 100).toFixed(1);
+                
+                if (data.prediction !== "Analyzing..." && data.prediction !== "Engine Offline") {
+                    fetchLatestHistory();
+                }
             }
         };
 
-        let coordinateSequence = [];
-
+        // MediaPipe Results Processing
         function onResults(results) {
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
             canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
             
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                emptyFrameCount = 0; 
+                isHandPresent = true;
+                
                 const landmarks = results.multiHandLandmarks[0];
                 
-                // Using explicit namespace references to avoid ReferenceErrors
                 if (window.drawConnectors && window.HAND_CONNECTIONS) {
                     window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 4});
                     window.drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 2, radius: 3});
@@ -74,43 +303,83 @@
                     coordinateSequence.shift();
                 }
                 
-                if (coordinateSequence.length === 30 && socket.readyState === WebSocket.OPEN) {
+                // Throttled Data Transfer Loop (Max once per 150ms)
+                const currentTime = Date.now();
+                if (coordinateSequence.length === 30 && 
+                    socket.readyState === WebSocket.OPEN && 
+                    (currentTime - lastInferenceTime > 150)) {
+                    
                     socket.send(JSON.stringify({ 'coordinates': coordinateSequence }));
+                    lastInferenceTime = currentTime;
+                }
+            } 
+            else {
+                emptyFrameCount++;
+                // Require 10 consecutive blank frames before declaring hand removed
+                if (emptyFrameCount >= 10) {
+                    isHandPresent = false;
+                    coordinateSequence = []; 
+                    
+                    translationText.innerText = "No hands detected";
+                    translationText.style.color = "var(--text-muted)"; 
+                    confidenceScore.innerText = "0.0";
                 }
             }
             canvasCtx.restore();
         }
 
-        // Safely instantiate the Hands instance
+        // Fetch History from PostgreSQL API & Normalize to Local Machine Time
+        async function fetchLatestHistory() {
+            if (!currentSessionId) return;
+            try {
+                const response = await fetch(`/api/history/${currentSessionId}/`);
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.history.length > 0) {
+                    logHistoryRows.innerHTML = data.history.map(log => {
+                        const today = new Date().toISOString().split('T')[0];
+                        const localTime = new Date(`${today}T${log.timestamp}Z`).toLocaleTimeString('en-IN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false
+                        });
+
+                        return `
+                            <tr>
+                                <td style="color: var(--text-muted); font-family: monospace;">${localTime}</td>
+                                <td style="font-weight: 600; color: #fff; text-transform: capitalize;">${log.predicted_word}</td>
+                                <td><span class="confidence-pill">${log.confidence_score}%</span></td>
+                            </tr>
+                        `;
+                    }).join('');
+                }
+            } catch (err) {
+                console.error("Error updating history panel:", err);
+            }
+        }
+
+        // Initialize MediaPipe Camera Pipeline
         const HandsClass = window.Hands || (window.mpHands ? window.mpHands.Hands : null);
-        if (!HandsClass) {
-            console.error("MediaPipe Hands library failed to load via CDN resources.");
-            translationText.innerText = "Error: Library Load Failure";
-        } else {
-            const hands = new HandsClass({locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-            }});
-            
-            hands.setOptions({
-                maxNumHands: 1,
-                modelComplexity: 1,
-                minDetectionConfidence: 0.7,
-                minTrackingConfidence: 0.7
-            });
+        if (HandsClass) {
+            const hands = new HandsClass({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
             hands.onResults(onResults);
 
             if (window.Camera) {
                 const camera = new window.Camera(videoElement, {
-                    onFrame: async () => {
-                        await hands.send({image: videoElement});
+                    onFrame: async () => { 
+                        if (videoElement.readyState >= 2) {
+                            await hands.send({image: videoElement}); 
+                        }
                     },
-                    width: 640,
+                    width: 640, 
                     height: 480
                 });
-                camera.start();
-            } else {
-                console.error("MediaPipe Camera Utils script not found.");
+                camera.start().catch(err => console.error("Camera activation failed:", err));
             }
+        } else {
+            console.error("MediaPipe Hands core engine scripts not found.");
         }
     </script>
 </body>

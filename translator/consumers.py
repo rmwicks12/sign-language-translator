@@ -34,11 +34,17 @@ class SignLanguageConsumer(AsyncWebsocketConsumer):
         # Open a brand new translation session in PostgreSQL
         self.session = await self.create_translation_session()
         self.last_logged_word = None
+        
         print(f"[DB SESSION] Started Session #{self.session.pk}")
+
+        # Instantly send the active session ID back to the frontend dashboard layout
+        await self.send(text_data=json.dumps({
+            'session_id': self.session.pk
+        }))
 
     async def disconnect(self, close_code):
         """Triggers when the user closes the tab or stops the camera."""
-        if hasattr(self, 'session'):
+        if hasattr(self, 'session') and self.session:
             await self.close_translation_session(self.session)
             print(f"[DB SESSION] Finalized and saved Session #{self.session.pk}")
         print("WebSocket Disconnected cleanly.")
@@ -53,6 +59,13 @@ class SignLanguageConsumer(AsyncWebsocketConsumer):
             data = json.loads(text_data)
             sequence = data.get('coordinates', [])
 
+            # FLICKER & EMPTY FRAME PROTECTION:
+            # If the frame tracking sequence drops or is empty, reset the tracker strings safely
+            if len(sequence) < 30:
+                self.last_logged_word = None
+                return
+
+            # Proceed with running inference if we have a complete 30-frame matrix window
             if len(sequence) == 30:
                 input_data = np.expand_dims(sequence, axis=0)
                 prediction_scores = model.predict(input_data, verbose=0)[0]
@@ -62,15 +75,14 @@ class SignLanguageConsumer(AsyncWebsocketConsumer):
                 if confidence >= CONFIDENCE_THRESHOLD:
                     result_word = ACTIONS[best_match_idx]
                     
-                    # DATABASE INJECTION LOGIC:
                     # Only create a permanent row if the gesture is a new distinct word event
-                    if result_word != self.last_logged_word:
+                    if hasattr(self, 'last_logged_word') and result_word != self.last_logged_word:
                         await self.save_log_to_db(self.session, result_word, confidence)
                         self.last_logged_word = result_word
                 else:
                     result_word = "Analyzing..."
 
-                # Push the live inference result back up to the browser screen interface
+                # Push the live inference result back up to the browser interface
                 await self.send(text_data=json.dumps({
                     'prediction': result_word,
                     'confidence': confidence
