@@ -76,10 +76,15 @@ ASGI_APPLICATION = 'core.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# Replace your existing DATABASES block in core/settings.py
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'mudra_db',             # The name of the database you created in Postgres
+        'USER': 'postgres',             # Your PostgreSQL username (default is usually postgres)
+        'PASSWORD': 'rithwik@8',     # Your local PostgreSQL password
+        'HOST': '127.0.0.1',            # Database host server
+        'PORT': '5432',                 # Default PostgreSQL port
     }
 }
 
