@@ -50,23 +50,46 @@ class SignLanguageConsumer(AsyncWebsocketConsumer):
         print("WebSocket Disconnected cleanly.")
 
     async def receive(self, text_data):
-        """Processes live landmark matrices and commits high-confidence predictions to Postgres."""
+        """Processes live landmark matrices and handles session control commands."""
         if model is None:
             await self.send(text_data=json.dumps({'prediction': 'Engine Offline', 'confidence': 0.0}))
             return
 
         try:
             data = json.loads(text_data)
+            
+            # === NEW: HANDLE INTERACTIVE CONTROL COMMANDS ===
+            command = data.get('command')
+            if command == "end_session":
+                if hasattr(self, 'session') and self.session:
+                    await self.close_translation_session(self.session)
+                    print(f"[DB SESSION] Finalized and saved Session #{self.session.pk}")
+                return
+
+            if command == "start_new_session":
+                # Create a completely fresh sequence record in PostgreSQL
+                self.session = await self.create_translation_session()
+                self.last_logged_word = None
+                print(f"[DB SESSION] Started New Session #{self.session.pk}")
+                
+                # Send the new ID back up to the frontend instantly
+                await self.send(text_data=json.dumps({
+                    'session_id': self.session.pk
+                }))
+                return
+
+            # === EXISTING: PROCESS ML FRAME DATA ===
             sequence = data.get('coordinates', [])
 
-            # FLICKER & EMPTY FRAME PROTECTION:
-            # If the frame tracking sequence drops or is empty, reset the tracker strings safely
             if len(sequence) < 30:
                 self.last_logged_word = None
                 return
 
-            # Proceed with running inference if we have a complete 30-frame matrix window
             if len(sequence) == 30:
+                # If the session was closed but frames are still bleeding in, ignore them
+                if not hasattr(self, 'session') or self.session.end_time is not None:
+                    return
+
                 input_data = np.expand_dims(sequence, axis=0)
                 prediction_scores = model.predict(input_data, verbose=0)[0]
                 best_match_idx = np.argmax(prediction_scores)
@@ -75,14 +98,12 @@ class SignLanguageConsumer(AsyncWebsocketConsumer):
                 if confidence >= CONFIDENCE_THRESHOLD:
                     result_word = ACTIONS[best_match_idx]
                     
-                    # Only create a permanent row if the gesture is a new distinct word event
                     if hasattr(self, 'last_logged_word') and result_word != self.last_logged_word:
                         await self.save_log_to_db(self.session, result_word, confidence)
                         self.last_logged_word = result_word
                 else:
                     result_word = "Analyzing..."
 
-                # Push the live inference result back up to the browser interface
                 await self.send(text_data=json.dumps({
                     'prediction': result_word,
                     'confidence': confidence
