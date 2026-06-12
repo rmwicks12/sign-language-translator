@@ -14,9 +14,26 @@ DATA_PATH = os.path.join('dataset')
 SEQUENCE_LENGTH = 30  # 30 frames per gesture temporal window
 DATA_POINTS_PER_FRAME = 63  # 21 landmarks * 3 coordinates (x, y, z)
 
-ACTIONS = np.array(['one', 'two', 'three'])
+# === DYNAMIC LEXICON EXTRACTION FIX ===
+def get_dynamic_actions():
+    """Scans the dataset directory and dynamically extracts all active vocabulary labels."""
+    if not os.path.exists(DATA_PATH):
+        return ['one', 'two', 'three']
+    files = [f for f in os.listdir(DATA_PATH) if f.endswith('.json')]
+    actions = set()
+    for file in files:
+        if '_' in file:
+            actions.add(file.split('_')[0])
+    return sorted(list(actions)) if actions else ['one', 'two', 'three']
+
+# Generate vocabulary map on the fly
+ACTIONS = np.array(get_dynamic_actions())
 label_map = {label: num for num, label in enumerate(ACTIONS)}
 
+print(f"\n[MLOPS TRAINING] Dynamic vocabulary mapped successfully:")
+print(f"Index Mapping: {label_map}\n")
+
+# === DATA UNWRAPPING ENGINE ===
 def load_real_dataset():
     sequences, labels = [], []
     
@@ -26,6 +43,8 @@ def load_real_dataset():
 
     json_files = [f for f in os.listdir(DATA_PATH) if f.endswith('.json')]
     print(f"Found {len(json_files)} total files in dataset directory.")
+
+    skipped_files_count = 0
 
     for file_name in json_files:
         prefix = file_name.split('_')[0]
@@ -40,34 +59,47 @@ def load_real_dataset():
                 
             window_sequences = []
             
-            # Loop directly through the 30 top-level items (the frames)
+            # Loop through each of the 30 frames
             for frame in raw_frames:
                 frame_coordinates = []
                 
-                # Unwrap the second level: grab the inner list of 21 landmarks
+                # Context Layer 1: Check if the frame is a nested list wrapper
                 if isinstance(frame, list) and len(frame) > 0:
-                    landmarks_list = frame[0]
+                    target_element = frame[0]
                     
-                    # Loop through the 21 coordinate dictionaries
-                    if isinstance(landmarks_list, list):
-                        for landmark in landmarks_list:
+                    # If it's your legacy double-nested list format [[{x,y,z}, ...]]
+                    if isinstance(target_element, list):
+                        for landmark in target_element:
+                            if isinstance(landmark, dict) and 'x' in landmark:
+                                frame_coordinates.extend([landmark['x'], landmark['y'], landmark['z']])
+                    
+                    # If it's a single nested array containing your new object splits [{x,y,z}, ...]
+                    elif isinstance(target_element, dict) and 'x' in target_element:
+                        for landmark in frame:
                             if isinstance(landmark, dict) and 'x' in landmark:
                                 frame_coordinates.extend([landmark['x'], landmark['y'], landmark['z']])
                 
-                # Check if this frame successfully gathered all 63 points
+                # Context Layer 2: Direct fallback if data is structured flat without list wrappers
+                elif isinstance(frame, dict) and 'x' in frame:
+                    if isinstance(frame, dict) and 'x' in frame:
+                        frame_coordinates.extend([frame['x'], frame['y'], frame['z']])
+
+                # Check if this single frame successfully unboxed all 63 coordinates
                 if len(frame_coordinates) == DATA_POINTS_PER_FRAME:
                     window_sequences.append(frame_coordinates)
             
-            # Verify the sequence matches our exact 30-frame window requirement
+            # Verify the sequence matches your exact 30-frame window requirement
             if len(window_sequences) == SEQUENCE_LENGTH:
                 sequences.append(window_sequences)
                 labels.append(label_map[prefix])
             else:
-                print(f"[NOTE] File {file_name} only parsed {len(window_sequences)}/30 valid frames. Skipping.")
+                print(f"[DATA WARNING] File {file_name} only extracted {len(window_sequences)}/30 valid frames. Skipping.")
+                skipped_files_count += 1
                 
         except Exception as e:
             print(f"[WARNING] Skipping file {file_name} due to unexpected error: {e}")
 
+    print(f"\n[PARSING SUMMARY] Successfully loaded {len(sequences)} sequences. Skipped {skipped_files_count} incompatible entries.")
     return np.array(sequences), np.array(labels)
 
 # ========================================================
@@ -81,30 +113,31 @@ if X is None or len(X) == 0:
     exit()
 
 print(f"\nSuccessfully processed dataset!")
-print(f"Features array (X) shape: {X.shape}") # Should be (Num_Files, 30, 63)
-print(f"Labels array (y) shape: {y.shape}")     # Should be (Num_Files,)
+print(f"Features array (X) shape: {X.shape}") 
+print(f"Labels array (y) shape: {y.shape}")     
 
-# One-hot encode the categorical labels
+# Dynamic category length scaling
 y_categorical = to_categorical(y, num_classes=len(ACTIONS))
 
 # Split into training and testing configurations (80% train, 20% validation)
 X_train, X_val, y_train, y_val = train_test_split(X, y_categorical, test_size=0.2, random_state=42)
 
 # ========================================================
-# NEURAL NETWORK TRAINING Pipeline
+# NEURAL NETWORK TRAINING PIPELINE
 # ========================================================
+# Neural network architecture grows dynamically based on the length of ACTIONS
 model = Sequential([
     LSTM(64, return_sequences=True, activation='relu', input_shape=(SEQUENCE_LENGTH, DATA_POINTS_PER_FRAME)),
     Dropout(0.2),
     LSTM(128, return_sequences=False, activation='relu'),
     Dropout(0.2),
     Dense(64, activation='relu'),
-    Dense(len(ACTIONS), activation='softmax')
+    Dense(len(ACTIONS), activation='softmax')  # <-- DYNAMIC LAYER SCALE OUTPUT FIX
 ])
 
 model.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['categorical_accuracy'])
 
-print("\nBeginning real training epochs on your custom landmarks...")
+print(f"\nBeginning real training epochs on your custom landmarks for {len(ACTIONS)} words...")
 model.fit(X_train, y_train, epochs=40, batch_size=4, validation_data=(X_val, y_val))
 
 # Export the intelligent engine

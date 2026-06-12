@@ -84,3 +84,33 @@ def save_captured_sequence(request):
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
             
     return JsonResponse({'status': 'error', 'message': 'Only POST requests allowed.'}, status=405)
+
+@csrf_exempt
+def get_dataset_count(request):
+    """API Endpoint: Counts how many existing JSON files match the targeted word prefix."""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            label = data.get('label', '').strip().lower()
+            
+            if not label:
+                return JsonResponse({'status': 'success', 'count': 0})
+                
+            BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            DATASET_DIR = os.path.join(BASE_DIR, 'dataset')
+            
+            if not os.path.exists(DATASET_DIR):
+                return JsonResponse({'status': 'success', 'count': 0})
+                
+            # Count files matching the format: label_XXXXXXXXXX.json
+            all_files = os.listdir(DATASET_DIR)
+            matching_files = [
+                f for f in all_files 
+                if f.startswith(f"{label}_") and f.endswith('.json')
+            ]
+            
+            return JsonResponse({'status': 'success', 'count': len(matching_files)})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)

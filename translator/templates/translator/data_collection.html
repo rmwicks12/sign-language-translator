@@ -17,123 +17,71 @@
             --text-muted: #8b949e;
             --accent-green: #238636;
             --accent-blue: #58a6ff;
+            --warn-orange: #d29922;
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-main);
             color: var(--text-main);
-            margin: 0;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            box-sizing: border-box;
+            margin: 0; padding: 24px;
+            display: flex; flex-direction: column;
+            height: 100vh; box-sizing: border-box;
         }
 
         header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 12px;
-            margin-bottom: 20px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px;
         }
 
         header h1 { margin: 0; font-size: 1.6rem; color: #fff; }
 
         .btn-back {
-            background-color: #21262d;
-            color: var(--text-main);
-            border: 1px solid var(--border-color);
-            padding: 8px 16px;
-            border-radius: 6px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 0.9rem;
+            background-color: #21262d; color: var(--text-main); border: 1px solid var(--border-color);
+            padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9rem;
         }
-
         .btn-back:hover { background-color: #30363d; }
 
-        .studio-layout {
-            display: grid;
-            grid-template-columns: 1.1fr 0.9fr;
-            gap: 24px;
-            flex: 1;
-        }
+        .studio-layout { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 24px; flex: 1; min-height: 0; }
 
         .panel {
-            background-color: var(--bg-card);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px;
+            padding: 20px; display: flex; flex-direction: column; align-items: center; box-sizing: border-box;
         }
 
         .video-container {
-            position: relative;
-            width: 100%;
-            max-width: 500px;
-            aspect-ratio: 4 / 3;
-            background: #000;
-            border-radius: 8px;
-            overflow: hidden;
+            position: relative; width: 100%; max-width: 500px; aspect-ratio: 4 / 3;
+            background: #000; border-radius: 8px; overflow: hidden;
         }
 
-        video, canvas {
-            position: absolute;
-            left: 0; top: 0; width: 100%; height: 100%;
-            transform: scaleX(-1);
+        video, canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform: scaleX(-1); }
+
+        .form-group { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+
+        .label-wrapper { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.95rem; }
+
+        .progress-pill {
+            padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-family: monospace; font-weight: bold;
+            background: rgba(242, 139, 130, 0.1); color: #ea4a5a; border: 1px solid rgba(242, 139, 130, 0.2);
+        }
+        .progress-pill.ready {
+            background: rgba(56, 142, 60, 0.15) !important; color: #4caf50 !important; border: 1px solid rgba(56, 142, 60, 0.4) !important;
         }
 
-        .form-group {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-bottom: 20px;
-        }
-
-        input {
-            background-color: #0d1117;
-            border: 1px solid var(--border-color);
-            color: #fff;
-            padding: 10px;
-            border-radius: 6px;
-            font-size: 1rem;
-        }
+        input { background-color: #0d1117; border: 1px solid var(--border-color); color: #fff; padding: 10px; border-radius: 6px; font-size: 1rem; }
 
         .btn-record {
-            width: 100%;
-            background-color: var(--accent-green);
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
+            width: 100%; background-color: var(--accent-green); color: white; border: none;
+            padding: 12px; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer;
         }
+        .btn-record:hover { background-color: #2ea44f; }
 
         .status-box {
-            margin-top: 20px;
-            width: 100%;
-            background: #090d13;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 16px;
-            box-sizing: border-box;
-            font-family: monospace;
+            margin-top: 20px; width: 100%; background: #090d13; border: 1px solid var(--border-color);
+            border-radius: 6px; padding: 16px; box-sizing: border-box; font-family: monospace; flex: 1; overflow-y: auto;
         }
 
-        .counter-highlight {
-            font-size: 3rem;
-            font-weight: bold;
-            color: var(--accent-blue);
-            margin: 20px 0;
-        }
+        .counter-highlight { font-size: 3rem; font-weight: bold; color: var(--accent-blue); margin: 20px 0 10px 0; }
     </style>
 </head>
 <body>
@@ -153,12 +101,26 @@
                 <canvas class="output_canvas" width="640" height="480"></canvas>
             </div>
             <div class="counter-highlight" id="frame_counter">0 / 30</div>
-            <div style="color: var(--text-muted);">Frames Captured for Active Sample</div>
+            <div style="color: var(--text-muted); font-size: 0.95rem;">Frames Captured for Active Sample</div>
         </div>
 
         <div class="panel" style="align-items: flex-start;">
+            <div style="width: 100%; background: rgba(88, 166, 255, 0.08); border: 1px solid rgba(88, 166, 255, 0.3); border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; box-sizing: border-box;">
+                <div style="color: var(--accent-blue); font-weight: 700; font-size: 0.95rem; margin-bottom: 6px;">
+                    ℹ️ Automated MLOps Pipeline Notice
+                </div>
+                <p style="margin: 0; font-size: 0.85rem; color: var(--text-main); line-height: 1.45;">
+                    To introduce a completely new word or optimize an existing gesture, a minimum threshold of 
+                    <strong style="color: #fff; font-weight: 600;">15 sequence JSON documents</strong> must be recorded. 
+                    Once hit, the background compiler script will automatically trigger retraining pipelines.
+                </p>
+            </div>
+
             <div class="form-group">
-                <label style="font-weight: 600;">Target Action Label Name:</label>
+                <div class="label-wrapper">
+                    <span>Target Action Label Name:</span>
+                    <span class="progress-pill" id="quota_badge">0 / 15 Samples</span>
+                </div>
                 <input type="text" id="action_name" placeholder="e.g., hello, thank you, please...">
             </div>
             
@@ -177,11 +139,48 @@
         const canvasCtx = canvasElement.getContext('2d');
         const frameCounter = document.getElementById('frame_counter');
         const actionInput = document.getElementById('action_name');
+        const quotaBadge = document.getElementById('quota_badge');
         const startBtn = document.getElementById('start_capture_btn');
         const consoleOutput = document.getElementById('console_output');
 
         let isCollecting = false;
         let recordedSequence = [];
+
+        async function updateLiveDiskCount() {
+            const label = actionInput.value.trim().toLowerCase();
+            if (!label) {
+                quotaBadge.innerText = "0 / 15 Samples";
+                quotaBadge.classList.remove('ready');
+                quotaBadge.style.backgroundColor = "rgba(242, 139, 130, 0.1)";
+                quotaBadge.style.color = "#ea4a5a";
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/get-count/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ label: label })
+                });
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    quotaBadge.innerText = `${data.count} / 15 Samples`;
+                    
+                    if (data.count >= 15) {
+                        quotaBadge.classList.add('ready');
+                        quotaBadge.style.backgroundColor = "rgba(76, 175, 80, 0.15)";
+                        quotaBadge.style.color = "#4caf50";
+                    } else {
+                        quotaBadge.classList.remove('ready');
+                        quotaBadge.style.backgroundColor = "rgba(210, 153, 34, 0.1)";
+                        quotaBadge.style.color = "var(--warn-orange)";
+                    }
+                }
+            } catch (err) { console.error("Error fetching live count:", err); }
+        }
+
+        actionInput.addEventListener('input', updateLiveDiskCount);
 
         function onResults(results) {
             canvasCtx.save();
@@ -190,20 +189,25 @@
             
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
-                
                 if (window.drawConnectors && window.HAND_CONNECTIONS) {
                     window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 4});
                     window.drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 2, radius: 2});
                 }
                 
-                // If recording countdown triggers, collect spatial array
                 if (isCollecting) {
                     let frameCoords = [];
+                    
+                    // FIXED: Rebuilt array tracking structure to map explicit landmark dictionaries
                     for (let i = 0; i < landmarks.length; i++) {
-                        frameCoords.push(landmarks[i].x, landmarks[i].y, landmarks[i].z);
+                        frameCoords.push({
+                            x: landmarks[i].x,
+                            y: landmarks[i].y,
+                            z: landmarks[i].z
+                        });
                     }
                     
-                    recordedSequence.push(frameCoords);
+                    // FIXED: Wrapped frame array inside an inner nesting layout to replicate legacy structural layout rows perfectly
+                    recordedSequence.push([frameCoords]);
                     frameCounter.innerText = `${recordedSequence.length} / 30`;
                     
                     if (recordedSequence.length === 30) {
@@ -217,33 +221,26 @@
 
         async function saveSampleSequence() {
             const label = actionInput.value.trim().toLowerCase();
-            
             consoleOutput.innerHTML += `<br><span style="color: var(--accent-blue)">[PROCESSING] Uploading matrix payload to local server...</span>`;
 
             try {
-                // Post the 30-frame sequence directly to our fresh Django view endpoint
                 const response = await fetch('/api/save-sequence/', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        label: label,
-                        sequence: recordedSequence
-                    })
+                    body: JSON.stringify({ label: label, sequence: recordedSequence })
                 });
-
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    consoleOutput.innerHTML += `<br><span style="color: var(--accent-green)">[DUMP SUCCESS] Saved file: <b>${data.file_name}</b> (Total Samples for '${label}': ${data.sample_count})</span>`;
+                    consoleOutput.innerHTML += `<br><span style="color: var(--accent-green)">[DUMP SUCCESS] Saved file with legacy splits: <b>${data.file_name}</b></span>`;
+                    updateLiveDiskCount();
                 } else {
                     consoleOutput.innerHTML += `<br><span style="color: #ea4a5a">[DUMP FAILED] Server rejected package: ${data.message}</span>`;
                 }
             } catch (err) {
-                console.error("Transmission error:", err);
                 consoleOutput.innerHTML += `<br><span style="color: #ea4a5a">[NETWORK ERROR] Could not reach server file-system pipeline.</span>`;
             }
 
-            // Flush the frame array sequence buffer and reset button state for the next capture run
             recordedSequence = [];
             startBtn.disabled = false;
             startBtn.style.opacity = "1";
@@ -255,12 +252,10 @@
                 return;
             }
             consoleOutput.innerHTML = `Starting tracking sequence in 1 second... Hold gesture posture steady!`;
-            startBtn.disabled = true;
-            startBtn.style.opacity = "0.5";
+            startBtn.disabled = true; startBtn.style.opacity = "0.5";
             
             setTimeout(() => {
-                recordedSequence = [];
-                isCollecting = true;
+                recordedSequence = []; isCollecting = true;
                 consoleOutput.innerHTML = `<span style="color: #ea4a5a">[RECORDING] Streaming coordinate frames...</span>`;
             }, 1000);
         });
@@ -270,13 +265,12 @@
             const hands = new HandsClass({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
             hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
             hands.onResults(onResults);
-
             if (window.Camera) {
                 const camera = new window.Camera(videoElement, {
-                    onFrame: async () => { await hands.send({image: videoElement}); },
+                    onFrame: async () => { if (videoElement.readyState >= 2) { await hands.send({image: videoElement}); } },
                     width: 640, height: 480
                 });
-                camera.start();
+                camera.start().catch(err => console.error("Camera failed:", err));
             }
         }
     </script>
