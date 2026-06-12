@@ -33,6 +33,25 @@ label_map = {label: num for num, label in enumerate(ACTIONS)}
 print(f"\n[MLOPS TRAINING] Dynamic vocabulary mapped successfully:")
 print(f"Index Mapping: {label_map}\n")
 
+# === SPATIAL NORMALIZATION ENGINE ===
+def normalize_frame(frame_coordinates):
+    """
+    Takes a flat list of 63 coordinates (21 landmarks * 3 axes).
+    Anchors the wrist (first 3 values: x, y, z) to (0, 0, 0).
+    Calculates all other joints relative to the wrist position.
+    """
+    wrist_x = frame_coordinates[0]
+    wrist_y = frame_coordinates[1]
+    wrist_z = frame_coordinates[2]
+    
+    normalized = []
+    for i in range(0, len(frame_coordinates), 3):
+        normalized.append(frame_coordinates[i] - wrist_x)
+        normalized.append(frame_coordinates[i+1] - wrist_y)
+        normalized.append(frame_coordinates[i+2] - wrist_z)
+        
+    return normalized
+
 # === DATA UNWRAPPING ENGINE ===
 def load_real_dataset():
     sequences, labels = [], []
@@ -86,7 +105,9 @@ def load_real_dataset():
 
                 # Check if this single frame successfully unboxed all 63 coordinates
                 if len(frame_coordinates) == DATA_POINTS_PER_FRAME:
-                    window_sequences.append(frame_coordinates)
+                    # Spatial Normalization layer scales coords before saving to window matrix
+                    normalized_coords = normalize_frame(frame_coordinates)
+                    window_sequences.append(normalized_coords)
             
             # Verify the sequence matches your exact 30-frame window requirement
             if len(window_sequences) == SEQUENCE_LENGTH:
@@ -127,20 +148,18 @@ X_train, X_val, y_train, y_val = train_test_split(X, y_categorical, test_size=0.
 # ========================================================
 # Neural network architecture grows dynamically based on the length of ACTIONS
 model = Sequential([
-    # FIXED: Removed activation='relu' to restore mathematically stable 'tanh' defaults
     LSTM(64, return_sequences=True, input_shape=(SEQUENCE_LENGTH, DATA_POINTS_PER_FRAME)),
     Dropout(0.2),
     LSTM(64, return_sequences=False),
     Dropout(0.2),
     Dense(64, activation='relu'),
-    Dense(len(ACTIONS), activation='softmax')  # <-- DYNAMIC LAYER SCALE OUTPUT FIX
+    Dense(len(ACTIONS), activation='softmax')
 ])
 
 model.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['categorical_accuracy'])
 
 print(f"\nBeginning real training epochs on your custom landmarks for {len(ACTIONS)} words...")
 
-# FIXED: Increased epochs to 80 and adjusted batch size to allow gradients to properly settle
 model.fit(X_train, y_train, epochs=80, batch_size=8, validation_data=(X_val, y_val))
 
 # Export the intelligent engine

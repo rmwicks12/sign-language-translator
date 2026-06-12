@@ -16,6 +16,25 @@ model = None
 ACTIONS = []
 last_loaded_timestamp = 0  # Tracks the modification time of the file in memory
 
+# === SPATIAL NORMALIZATION ENGINE ===
+def normalize_frame(frame_coordinates):
+    """
+    Takes a flat list of 63 coordinates (21 landmarks * 3 axes).
+    Anchors the wrist (first 3 values: x, y, z) to (0, 0, 0).
+    Calculates all other joints relative to the wrist position.
+    """
+    wrist_x = frame_coordinates[0]
+    wrist_y = frame_coordinates[1]
+    wrist_z = frame_coordinates[2]
+    
+    normalized = []
+    for i in range(0, len(frame_coordinates), 3):
+        normalized.append(frame_coordinates[i] - wrist_x)
+        normalized.append(frame_coordinates[i+1] - wrist_y)
+        normalized.append(frame_coordinates[i+2] - wrist_z)
+        
+    return normalized
+
 def hot_load_model_if_updated():
     """
     Checks the hard drive to see if a background training script 
@@ -54,7 +73,7 @@ class TranslationConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
         
-        # FIXED: Global boot call moved safely inside the active socket connection thread
+        # Global boot call moved safely inside the active socket connection thread
         await sync_to_async(hot_load_model_if_updated)()
         
         from .models import TranslationSession
@@ -123,8 +142,13 @@ class TranslationConsumer(AsyncWebsocketConsumer):
                 }))
                 return
 
+            # FIXED: Normalize the live incoming sequence frame-by-frame before hitting the model
+            normalized_sequence = []
+            for frame in sequence:
+                normalized_sequence.append(normalize_frame(frame))
+
             # Feed spatial matrix directly into hot-swapped LSTM layers
-            input_data = np.expand_dims(sequence, axis=0)
+            input_data = np.expand_dims(normalized_sequence, axis=0)
             prediction_scores = model.predict(input_data, verbose=0)[0]
             best_match_idx = np.argmax(prediction_scores)
             confidence = float(prediction_scores[best_match_idx])
