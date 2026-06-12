@@ -17,6 +17,7 @@
             --text-muted: #8b949e;
             --accent-blue: #58a6ff;
             --accent-green: #238636;
+            --accent-red: #da3633;
         }
 
         body {
@@ -72,7 +73,58 @@
         /* Left Pane: Camera Vision Space */
         .vision-pane {
             align-items: center;
+            justify-content: flex-start;
+        }
+
+        /* Control Bar Styles */
+        .control-bar {
+            width: 100%;
+            max-width: 640px;
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 10px 16px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: background-color 0.2s, border-color 0.2s;
+            display: flex;
+            align-items: center;
             justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background-color: #21262d;
+            color: var(--accent-blue);
+            border-color: var(--border-color);
+        }
+
+        .btn-primary:hover {
+            background-color: #30363d;
+            border-color: #8b949e;
+        }
+
+        .btn-primary.active-tracking {
+            background-color: rgba(88, 166, 255, 0.15);
+            border-color: var(--accent-blue);
+        }
+
+        .btn-danger {
+            background-color: #21262d;
+            color: var(--accent-red);
+            border-color: var(--border-color);
+        }
+
+        .btn-danger:hover {
+            background-color: rgba(218, 54, 51, 0.15);
+            border-color: var(--accent-red);
         }
 
         .video-container {
@@ -132,6 +184,11 @@
             color: #fff;
         }
 
+        .session-badge.terminated {
+            background: #484f58;
+            color: var(--text-muted);
+        }
+
         .log-table-wrapper {
             flex: 1;
             overflow-y: auto;
@@ -186,6 +243,15 @@
 
     <div class="dashboard-container">
         <div class="panel vision-pane">
+            <div class="control-bar">
+                <button class="btn btn-primary active-tracking" id="toggle_track_btn">
+                    <span>⏸ Pause Tracking</span>
+                </button>
+                <button class="btn btn-danger" id="end_session_btn">
+                    <span>🛑 End Session</span>
+                </button>
+            </div>
+
             <div class="video-container">
                 <video class="input_video" autoplay playsinline style="display:none;"></video>
                 <canvas class="output_canvas" width="640" height="480"></canvas>
@@ -234,15 +300,23 @@
         const confidenceScore = document.getElementById('confidence_score');
         const logHistoryRows = document.getElementById('log_history_rows');
         const sessionLabel = document.getElementById('session_label');
+        
+        // Control Buttons
+        const toggleTrackBtn = document.getElementById('toggle_track_btn');
+        const endSessionBtn = document.getElementById('end_session_btn');
 
         let currentSessionId = null;
         let coordinateSequence = [];
         let isHandPresent = false;
         let emptyFrameCount = 0;
         let lastInferenceTime = 0;
+        
+        // Dynamic Application State Flags
+        let isTrackingActive = true;
+        let isSessionActive = true;
 
         // Establish WebSocket Connection
-        const socket = new WebSocket('ws://' + window.location.host + '/ws/translate/');
+        let socket = new WebSocket('ws://' + window.location.host + '/ws/translate/');
         
         socket.onopen = () => {
             translationText.innerText = "No hands detected";
@@ -252,7 +326,6 @@
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             
-            // 1. Capture Active Session ID from Backend
             if (data.session_id) {
                 currentSessionId = data.session_id;
                 sessionLabel.innerText = `Session #${currentSessionId} (Active)`;
@@ -260,9 +333,8 @@
                 return;
             }
             
-            // 2. Process Live ML Predictions (Ignore if hand left screen)
             if (data.prediction) {
-                if (!isHandPresent) {
+                if (!isHandPresent || !isTrackingActive) {
                     return; 
                 }
 
@@ -282,6 +354,12 @@
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
             canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
             
+            // If user explicitly paused tracking or killed session, clear drawing frame metrics early
+            if (!isTrackingActive || !isSessionActive) {
+                canvasCtx.restore();
+                return;
+            }
+
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 emptyFrameCount = 0; 
                 isHandPresent = true;
@@ -303,7 +381,6 @@
                     coordinateSequence.shift();
                 }
                 
-                // Throttled Data Transfer Loop (Max once per 150ms)
                 const currentTime = Date.now();
                 if (coordinateSequence.length === 30 && 
                     socket.readyState === WebSocket.OPEN && 
@@ -315,7 +392,6 @@
             } 
             else {
                 emptyFrameCount++;
-                // Require 10 consecutive blank frames before declaring hand removed
                 if (emptyFrameCount >= 10) {
                     isHandPresent = false;
                     coordinateSequence = []; 
@@ -328,7 +404,7 @@
             canvasCtx.restore();
         }
 
-        // Fetch History from PostgreSQL API & Normalize to Local Machine Time
+        // Fetch History API & Normalize to Local Machine Time
         async function fetchLatestHistory() {
             if (!currentSessionId) return;
             try {
@@ -359,6 +435,59 @@
             }
         }
 
+        // ========================================================
+        // INTERACTIVE CONTROL EVENT LISTENERS
+        // ========================================================
+        
+        // 1. Pause / Resume Toggle
+        toggleTrackBtn.addEventListener('click', () => {
+            if (!isSessionActive) return; // Ignore if session ended
+            
+            isTrackingActive = !isTrackingActive;
+            
+            if (isTrackingActive) {
+                toggleTrackBtn.innerHTML = "<span>⏸ Pause Tracking</span>";
+                toggleTrackBtn.classList.add('active-tracking');
+                translationText.innerText = "No hands detected";
+                translationText.style.color = "var(--text-muted)";
+            } else {
+                toggleTrackBtn.innerHTML = "<span>▶ Resume Tracking</span>";
+                toggleTrackBtn.classList.remove('active-tracking');
+                translationText.innerText = "Tracking Paused";
+                translationText.style.color = "var(--accent-blue)";
+                confidenceScore.innerText = "0.0";
+                coordinateSequence = [];
+            }
+        });
+
+        // 2. Terminate Session 
+        endSessionBtn.addEventListener('click', () => {
+            if (!isSessionActive) return;
+            
+            const confirmEnd = confirm("Are you sure you want to finalize this translation session?");
+            if (!confirmEnd) return;
+
+            isSessionActive = false;
+            isTrackingActive = false;
+            
+            // Adjust UI layout elements into safe static formats
+            toggleTrackBtn.disabled = true;
+            toggleTrackBtn.style.opacity = "0.4";
+            endSessionBtn.disabled = true;
+            endSessionBtn.style.opacity = "0.4";
+            
+            sessionLabel.innerText = `Session #${currentSessionId} (Finalized)`;
+            sessionLabel.classList.add('terminated');
+            translationText.innerText = "Session Concluded";
+            translationText.style.color = "var(--text-muted)";
+            confidenceScore.innerText = "0.0";
+
+            // Gracefully tell backend to wrap up and sever socket connection pipeline
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.close();
+            }
+        });
+
         // Initialize MediaPipe Camera Pipeline
         const HandsClass = window.Hands || (window.mpHands ? window.mpHands.Hands : null);
         if (HandsClass) {
@@ -378,8 +507,6 @@
                 });
                 camera.start().catch(err => console.error("Camera activation failed:", err));
             }
-        } else {
-            console.error("MediaPipe Hands core engine scripts not found.");
         }
     </script>
 </body>
