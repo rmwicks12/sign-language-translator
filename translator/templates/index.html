@@ -190,6 +190,7 @@
         }
 
         .log-table-wrapper {
+            box-sizing: border-box;
             flex: 1;
             overflow-y: auto;
             border: 1px solid var(--border-color);
@@ -357,7 +358,7 @@
             }
         };
 
-        // MediaPipe Results Processing
+        // === UPGRADED ONRESULTS LOOP: TRACKS BOTH HANDS SIMULTANEOUSLY INTO A FLAT VECTOR ===
         function onResults(results) {
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -372,18 +373,36 @@
                 emptyFrameCount = 0; 
                 isHandPresent = true;
                 
-                const landmarks = results.multiHandLandmarks[0];
-                
-                if (window.drawConnectors && window.HAND_CONNECTIONS) {
-                    window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 4});
-                    window.drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 2, radius: 3});
+                // Draw bones and markers over all visible hands simultaneously
+                for (const landmarks of results.multiHandLandmarks) {
+                    if (window.drawConnectors && window.HAND_CONNECTIONS) {
+                        window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 3});
+                        window.drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 1.5, radius: 1.5});
+                    }
                 }
                 
                 let frameCoords = [];
-                for (let i = 0; i < landmarks.length; i++) {
-                    frameCoords.push(landmarks[i].x, landmarks[i].y, landmarks[i].z);
+                
+                // Unbox Hand 1 (Primary) flat floats directly
+                const hand1 = results.multiHandLandmarks[0];
+                for (let i = 0; i < hand1.length; i++) {
+                    frameCoords.push(hand1[i].x, hand1[i].y, hand1[i].z);
                 }
                 
+                // Unbox Hand 2 flat floats with Zero-Padding Workaround Fallback
+                if (results.multiHandLandmarks.length > 1) {
+                    const hand2 = results.multiHandLandmarks[1];
+                    for (let i = 0; i < hand2.length; i++) {
+                        frameCoords.push(hand2[i].x, hand2[i].y, hand2[i].z);
+                    }
+                } else {
+                    // Inject 63 float coordinates to pad the missing second hand explicitly
+                    for (let i = 0; i < 63; i++) {
+                        frameCoords.push(0.0);
+                    }
+                }
+                
+                // Push the complete 126-dimension timeline element array block
                 coordinateSequence.push(frameCoords);
                 if (coordinateSequence.length > 30) {
                     coordinateSequence.shift();
@@ -433,7 +452,7 @@
                                 <tr>
                                     <td style="color: var(--text-muted); font-family: monospace;">${localTime}</td>
                                     <td style="font-weight: 600; color: #fff; text-transform: capitalize;">${log.predicted_word}</td>
-                                    <td><span class="confidence-pill">${log.confidence_score}%</span></td>
+                                    <td><span class="confidence-pill">${log.confidence_score}</span></td>
                                 </tr>
                             `;
                         }).join('');
@@ -450,7 +469,6 @@
         // INTERACTIVE CONTROL EVENT LISTENERS
         // ========================================================
         
-        // 1. Pause / Resume Toggle
         toggleTrackBtn.addEventListener('click', () => {
             if (!isSessionActive) return;
             isTrackingActive = !isTrackingActive;
@@ -470,7 +488,6 @@
             }
         });
 
-        // 2. Terminate Active Session
         endSessionBtn.addEventListener('click', () => {
             if (!isSessionActive) return;
             
@@ -480,12 +497,10 @@
             isSessionActive = false;
             isTrackingActive = false;
             
-            // Send clear string command to backend instead of closing WebSocket channel
             if (socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify({ 'command': 'end_session' }));
             }
             
-            // Swap Button Layout states
             endSessionBtn.style.display = "none";
             toggleTrackBtn.style.display = "none";
             startSessionBtn.style.display = "flex";
@@ -497,23 +512,19 @@
             confidenceScore.innerText = "0.0";
         });
 
-        // 3. Spin Up Fresh In-Memory Session
         startSessionBtn.addEventListener('click', () => {
             if (isSessionActive) return;
 
-            // Clear coordinate buffer and layout grid strings cleanly
             coordinateSequence = [];
             logHistoryRows.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 40px;">Initializing fresh record metrics...</td></tr>`;
             
             isSessionActive = true;
             isTrackingActive = true;
 
-            // Request backend to configure a fresh database row link
             if (socket.readyState === WebSocket.OPEN) {
                 socket.send(JSON.stringify({ 'command': 'start_new_session' }));
             }
 
-            // Restore original button navigation setup
             startSessionBtn.style.display = "none";
             toggleTrackBtn.style.display = "flex";
             toggleTrackBtn.innerHTML = "<span>⏸ Pause Tracking</span>";
@@ -528,7 +539,14 @@
         const HandsClass = window.Hands || (window.mpHands ? window.mpHands.Hands : null);
         if (HandsClass) {
             const hands = new HandsClass({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+            
+            // === HARDWARE ACCELERATION UPGRADE FOR MULTI-HAND TRACKING ===
+            hands.setOptions({ 
+                maxNumHands: 2, // Upgraded to scan up to 2 distinct hands simultaneously
+                modelComplexity: 1, 
+                minDetectionConfidence: 0.7, 
+                minTrackingConfidence: 0.7 
+            });
             hands.onResults(onResults);
 
             if (window.Camera) {

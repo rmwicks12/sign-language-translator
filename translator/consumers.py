@@ -16,23 +16,43 @@ model = None
 ACTIONS = []
 last_loaded_timestamp = 0  # Tracks the modification time of the file in memory
 
-# === SPATIAL NORMALIZATION ENGINE ===
+# ========================================================
+# UPGRADED GLOBAL PARAMETERS
+# ========================================================
+DATA_POINTS_PER_FRAME = 126  # Expected dimension size for simultaneous 2-hand processing
+
+# === UPGRADED SPATIAL NORMALIZATION ENGINE ===
 def normalize_frame(frame_coordinates):
     """
-    Takes a flat list of 63 coordinates (21 landmarks * 3 axes).
-    Anchors the wrist (first 3 values: x, y, z) to (0, 0, 0).
-    Calculates all other joints relative to the wrist position.
+    Independently normalizes each hand's coordinate matrix block relative 
+    to its own respective wrist position to preserve geometric shapes.
     """
-    wrist_x = frame_coordinates[0]
-    wrist_y = frame_coordinates[1]
-    wrist_z = frame_coordinates[2]
-    
     normalized = []
-    for i in range(0, len(frame_coordinates), 3):
-        normalized.append(frame_coordinates[i] - wrist_x)
-        normalized.append(frame_coordinates[i+1] - wrist_y)
-        normalized.append(frame_coordinates[i+2] - wrist_z)
+    
+    # Hand 1 Normalization (First 63 values)
+    wrist1_x = frame_coordinates[0]
+    wrist1_y = frame_coordinates[1]
+    wrist1_z = frame_coordinates[2]
+    
+    for i in range(0, 63, 3):
+        normalized.append(frame_coordinates[i] - wrist1_x)
+        normalized.append(frame_coordinates[i+1] - wrist1_y)
+        normalized.append(frame_coordinates[i+2] - wrist1_z)
         
+    # Hand 2 Normalization (Next 63 values)
+    wrist2_x = frame_coordinates[63]
+    wrist2_y = frame_coordinates[64]
+    wrist2_z = frame_coordinates[65]
+    
+    # Safety Check: If hand 2 is zero-padded (invisible), leave the zeros as they are
+    if wrist2_x == 0.0 and wrist2_y == 0.0 and wrist2_z == 0.0:
+        normalized.extend([0.0] * 63)
+    else:
+        for i in range(63, 126, 3):
+            normalized.append(frame_coordinates[i] - wrist2_x)
+            normalized.append(frame_coordinates[i+1] - wrist2_y)
+            normalized.append(frame_coordinates[i+2] - wrist2_z)
+            
     return normalized
 
 def hot_load_model_if_updated():
@@ -128,6 +148,8 @@ class TranslationConsumer(AsyncWebsocketConsumer):
 
             # Frame Processing Engine Block
             sequence = data.get('coordinates', [])
+            
+            # Validation Pass: Ensure incoming multi-hand streams have been processed completely
             if len(sequence) != 30:
                 return
 
@@ -142,36 +164,70 @@ class TranslationConsumer(AsyncWebsocketConsumer):
                 }))
                 return
 
-            # FIXED: Normalize the live incoming sequence frame-by-frame before hitting the model
+            # Normalize the live incoming sequence frame-by-frame before hitting the model
             normalized_sequence = []
             for frame in sequence:
-                normalized_sequence.append(normalize_frame(frame))
+                if len(frame) == DATA_POINTS_PER_FRAME:
+                    normalized_sequence.append(normalize_frame(frame))
+                else:
+                    return
 
-            # Feed spatial matrix directly into hot-swapped LSTM layers
+            # Feed the upgraded 126-feature spatial matrix directly into hot-swapped LSTM layers
             input_data = np.expand_dims(normalized_sequence, axis=0)
             prediction_scores = model.predict(input_data, verbose=0)[0]
+
+            # ========================================================
+            # PURE DYNAMIC LEXICON MASKING ENGINE
+            # ========================================================
+            # Peek at the very last frame in your 30-frame sequence
+            last_frame = normalized_sequence[-1]
+            h2_wrist_x, h2_wrist_y, h2_wrist_z = last_frame[63], last_frame[64], last_frame[65]
+            
+            # Check if second hand is present or zero-padded
+            is_two_handed_present = not (h2_wrist_x == 0.0 and h2_wrist_y == 0.0 and h2_wrist_z == 0.0)
+
+            for idx, action_label in enumerate(ACTIONS):
+                is_two_handed_label = action_label.startswith('2h_')
+                
+                if is_two_handed_present:
+                    # If BOTH hands are visible, suppress standard single-hand predictions
+                    if not is_two_handed_label:
+                        prediction_scores[idx] = 0.0
+                else:
+                    # If ONLY ONE hand is visible, suppress '2h_' prefixed predictions
+                    if is_two_handed_label:
+                        prediction_scores[idx] = 0.0
+
+            # Re-evaluate the best match after applying structural masking filters
             best_match_idx = np.argmax(prediction_scores)
             confidence = float(prediction_scores[best_match_idx])
+            # ========================================================
 
-            # === ADD THESE TEMPORARY DEBUG LOGS HERE ===
-            print(f"[DEBUG LOG] Best Match Index: {best_match_idx} | Active Actions List: {ACTIONS}")
+            # === TEMPORARY DEBUG LOGS ===
+            print(f"[ROUTING ENGINE] Two Hands Present: {is_two_handed_present} | Masked Best Match: {best_match_idx}")
             print(f"[DEBUG LOG] Confidence: {confidence:.2f} | Last Logged Word State: {self.last_logged_word}")
 
-            # Logging Engine Rules verification
-            if confidence >= 0.65 and best_match_idx < len(ACTIONS):
-                result_word = ACTIONS[best_match_idx]
-                print(f"[DEBUG LOG] Resolved Word: '{result_word}'")
+            # Logging Engine Rules verification (Only proceed if prediction survived masking gates)
+            if confidence >= 0.65 and prediction_scores[best_match_idx] > 0.0 and best_match_idx < len(ACTIONS):
+                raw_word = ACTIONS[best_match_idx]
                 
-                if result_word != self.last_logged_word and result_word != 'awaiting_data':
-                    print(f"[DB WRITE] Saving '{result_word}' to Database row...")
+                # Strip out the '2h_' routing prefix dynamically for clean logging and display outputs
+                resolved_display_word = raw_word.replace('2h_', '')
+                print(f"[DEBUG LOG] Resolved Word: '{resolved_display_word}'")
+                
+                if resolved_display_word != self.last_logged_word and resolved_display_word != 'awaiting_data':
+                    print(f"[DB WRITE] Saving '{resolved_display_word}' to Database row...")
                     await sync_to_async(TranslationLog.objects.create)(
                         session=self.session,
-                        predicted_word=result_word,
+                        predicted_word=resolved_display_word,
                         confidence_score=confidence
                     )
-                    self.last_logged_word = result_word
+                    self.last_logged_word = resolved_display_word
+                
+                result_word = resolved_display_word
             else:
-                result_word = "Analyzing..."
+                # Custom graceful fallback messaging to keep the user informed
+                result_word = "Awaiting Two-Hand Dataset..." if is_two_handed_present else "Analyzing..."
 
             await self.send(text_data=json.dumps({
                 'prediction': result_word,

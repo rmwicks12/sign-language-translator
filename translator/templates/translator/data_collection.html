@@ -276,23 +276,45 @@
 
         actionInput.addEventListener('input', updateLiveDiskCount);
 
+        // === UPDATED ONRESULTS LOOP: SUPPORTS MULTI-HAND TRACKING SIMULTANEOUSLY ===
         function onResults(results) {
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
             canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
             
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0];
-                if (window.drawConnectors && window.HAND_CONNECTIONS) {
-                    window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 3});
-                    window.drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 1.5, radius: 1.5});
+                // Render tracking skeleton loops over all hands detected on screen simultaneously
+                for (const landmarks of results.multiHandLandmarks) {
+                    if (window.drawConnectors && window.HAND_CONNECTIONS) {
+                        window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 3});
+                        window.drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 1.5, radius: 1.5});
+                    }
                 }
                 
                 if (isCollecting) {
                     let frameCoords = [];
-                    for (let i = 0; i < landmarks.length; i++) {
-                        frameCoords.push({ x: landmarks[i].x, y: landmarks[i].y, z: landmarks[i].z });
+                    
+                    // Unbox Hand 1 tracking coordinate map (Primary detected hand element)
+                    const hand1 = results.multiHandLandmarks[0];
+                    for (let i = 0; i < hand1.length; i++) {
+                        frameCoords.push({ x: hand1[i].x, y: hand1[i].y, z: hand1[i].z });
                     }
+                    
+                    // Unbox Hand 2 tracking coordinate map with automatic Zero-Padding Fallback Workaround
+                    if (results.multiHandLandmarks.length > 1) {
+                        // Secondary hand is actively framed -> Extract real positioning features
+                        const hand2 = results.multiHandLandmarks[1];
+                        for (let i = 0; i < hand2.length; i++) {
+                            frameCoords.push({ x: hand2[i].x, y: hand2[i].y, z: hand2[i].z });
+                        }
+                    } else {
+                        // Only 1 hand is visible -> Fill remaining 21 landmark nodes with static zeros
+                        for (let i = 0; i < 21; i++) {
+                            frameCoords.push({ x: 0.0, y: 0.0, z: 0.0 });
+                        }
+                    }
+                    
+                    // Accumulate the unified 126-dimension vector array block
                     recordedSequence.push([frameCoords]);
                     frameCounter.innerText = `${recordedSequence.length} / 30 Frames`;
                     
@@ -319,7 +341,6 @@
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    // FIXED: Injects an inline layout wrapper block containing the file status logging and custom "Undo Take ↩️" trigger button
                     consoleOutput.innerHTML += `
                         <div style="display: flex; justify-content: space-between; align-items: center; background: #1c2128; padding: 6px 10px; border-radius: 4px; margin-top: 6px; border: 1px solid rgba(56, 142, 60, 0.2);">
                             <span style="color: var(--accent-green)">[SUCCESS] Saved file: <b>${data.file_name}</b></span>
@@ -344,7 +365,6 @@
             startBtn.style.opacity = "1";
         }
 
-        // === NEW FEATURE: INSTANT DELETION VALVE INTERACTION ===
         async function undoLastSample(fileName, buttonElement) {
             buttonElement.disabled = true;
             buttonElement.innerText = "Purging...";
@@ -398,8 +418,16 @@
         const HandsClass = window.Hands || (window.mpHands ? window.mpHands.Hands : null);
         if (HandsClass) {
             const hands = new HandsClass({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+            
+            // === HARDWARE ACCELERATION CONFIGURATION FOR TWO HANDS SIMULTANEOUSLY ===
+            hands.setOptions({ 
+                maxNumHands: 2, // Upgraded to scan up to 2 distinct hands simultaneously on this viewport element
+                modelComplexity: 1, 
+                minDetectionConfidence: 0.7, 
+                minTrackingConfidence: 0.7 
+            });
             hands.onResults(onResults);
+            
             if (window.Camera) {
                 const camera = new window.Camera(videoElement, {
                     onFrame: async () => { if (videoElement.readyState >= 2) { await hands.send({image: videoElement}); } },
