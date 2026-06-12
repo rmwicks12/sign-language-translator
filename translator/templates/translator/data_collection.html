@@ -308,6 +308,7 @@
         async function saveSampleSequence() {
             const label = actionInput.value.trim().toLowerCase();
             consoleOutput.innerHTML += `<br><span style="color: var(--accent-blue)">[PROCESSING] Uploading matrix payload...</span>`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
 
             try {
                 const response = await fetch('/api/save-sequence/', {
@@ -318,7 +319,15 @@
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    consoleOutput.innerHTML += `<br><span style="color: var(--accent-green)">[SUCCESS] Saved file: <b>${data.file_name}</b></span>`;
+                    // FIXED: Injects an inline layout wrapper block containing the file status logging and custom "Undo Take ↩️" trigger button
+                    consoleOutput.innerHTML += `
+                        <div style="display: flex; justify-content: space-between; align-items: center; background: #1c2128; padding: 6px 10px; border-radius: 4px; margin-top: 6px; border: 1px solid rgba(56, 142, 60, 0.2);">
+                            <span style="color: var(--accent-green)">[SUCCESS] Saved file: <b>${data.file_name}</b></span>
+                            <button onclick="undoLastSample('${data.file_name}', this)" style="background: #ea4a5a; color: white; border: none; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75rem; font-weight: bold; font-family: sans-serif;">
+                                Undo Take ↩️
+                            </button>
+                        </div>
+                    `;
                     await updateLiveDiskCount();
                     refreshVocabularyList();
                 } else {
@@ -333,6 +342,39 @@
             frameCounter.innerText = `0 / 30 Frames`;
             startBtn.disabled = false;
             startBtn.style.opacity = "1";
+        }
+
+        // === NEW FEATURE: INSTANT DELETION VALVE INTERACTION ===
+        async function undoLastSample(fileName, buttonElement) {
+            buttonElement.disabled = true;
+            buttonElement.innerText = "Purging...";
+
+            try {
+                const response = await fetch('/api/delete-sample/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_name: fileName })
+                });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const container = buttonElement.parentElement;
+                    container.style.borderColor = "var(--border-color)";
+                    container.style.background = "#0d1117";
+                    container.innerHTML = `<span style="color: var(--text-muted); text-decoration: line-through;">[PURGED] ${fileName} removed from disk directory.</span>`;
+                    
+                    await updateLiveDiskCount();
+                    refreshVocabularyList();
+                } else {
+                    alert("Deletion failed: " + data.message);
+                    buttonElement.disabled = false;
+                    buttonElement.innerText = "Undo Take ↩️";
+                }
+            } catch (err) {
+                console.error("Error communicating with data valve:", err);
+                buttonElement.disabled = false;
+                buttonElement.innerText = "Undo Take ↩️";
+            }
         }
 
         startBtn.addEventListener('click', () => {

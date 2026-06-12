@@ -155,3 +155,38 @@ def get_all_counts(request):
         return JsonResponse({'status': 'success', 'counts': sorted_counts})
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@csrf_exempt
+def delete_last_sample(request):
+    """
+    API Endpoint: Instantly purges a specific faulty JSON sequence 
+    from the disk folder if the user triggers an Undo command.
+    """
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            file_name = data.get('file_name', '').strip()
+            
+            if not file_name:
+                return JsonResponse({'status': 'error', 'message': 'No file name provided.'}, status=400)
+                
+            BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            DATASET_DIR = os.path.join(BASE_DIR, 'dataset')
+            file_path = os.path.join(DATASET_DIR, file_name)
+            
+            # Security Sanity Check: Ensure the file path actually sits inside our target folder
+            if not os.path.abspath(file_path).startswith(os.path.abspath(DATASET_DIR)):
+                return JsonResponse({'status': 'error', 'message': 'Unauthorized file path path detection.'}, status=403)
+
+            # If the file exists on disk, delete it cleanly
+            if os.path.exists(file_path):
+                os.remove(file_path)
+                print(f"[MLOPS PURGE] Deleted faulty data snapshot: {file_name}")
+                return JsonResponse({'status': 'success', 'message': f'Purged {file_name} successfully.'})
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Target file not found on disk system.'}, status=404)
+                
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            
+    return JsonResponse({'status': 'error', 'message': 'POST required.'}, status=405)
