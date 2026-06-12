@@ -24,64 +24,106 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg-main);
             color: var(--text-main);
-            margin: 0; padding: 24px;
+            margin: 0; padding: 20px;
             display: flex; flex-direction: column;
             height: 100vh; box-sizing: border-box;
+            overflow: hidden;
         }
 
         header {
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid var(--border-color); padding-bottom: 12px; margin-bottom: 20px;
+            border-bottom: 1px solid var(--border-color); padding-bottom: 10px; margin-bottom: 16px;
         }
 
-        header h1 { margin: 0; font-size: 1.6rem; color: #fff; }
+        header h1 { margin: 0; font-size: 1.4rem; color: #fff; }
+        header p { margin: 4px 0 0 0; font-size: 0.85rem; color: var(--text-muted); }
 
         .btn-back {
             background-color: #21262d; color: var(--text-main); border: 1px solid var(--border-color);
-            padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.9rem;
+            padding: 6px 12px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.85rem;
         }
         .btn-back:hover { background-color: #30363d; }
 
-        .studio-layout { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 24px; flex: 1; min-height: 0; }
+        /* TWO COLUMN ENGINE */
+        .studio-layout { 
+            display: grid; 
+            grid-template-columns: 1.12fr 0.88fr; 
+            gap: 16px; 
+            flex: 1; 
+            min-height: 0; 
+        }
 
         .panel {
-            background-color: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px;
-            padding: 20px; display: flex; flex-direction: column; align-items: center; box-sizing: border-box;
+            background-color: var(--bg-card); 
+            border: 1px solid var(--border-color); 
+            border-radius: 8px;
+            padding: 16px; 
+            display: flex; 
+            flex-direction: column; 
+            box-sizing: border-box; 
+            height: 100%; 
+            min-height: 0;
         }
 
+        /* LEFT SIDE: CAMERA OVER VOCABULARY */
         .video-container {
-            position: relative; width: 100%; max-width: 500px; aspect-ratio: 4 / 3;
-            background: #000; border-radius: 8px; overflow: hidden;
+            position: relative; 
+            width: 100%; 
+            max-width: 580px;
+            aspect-ratio: 4 / 3;
+            background: #000; 
+            border-radius: 6px; 
+            overflow: hidden; 
+            margin: 0 auto 12px auto;
         }
-
         video, canvas { position: absolute; left: 0; top: 0; width: 100%; height: 100%; transform: scaleX(-1); }
 
-        .form-group { width: 100%; display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+        /* RIGHT SIDE: LOGGER BOX */
+        .status-box {
+            width: 100%; 
+            background: #090d13; 
+            border: 1px solid var(--border-color);
+            border-radius: 6px; 
+            padding: 12px; 
+            box-sizing: border-box; 
+            font-family: monospace; 
+            flex: 1; 
+            overflow-y: auto;
+        }
 
-        .label-wrapper { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.95rem; }
+        .form-group { width: 100%; display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+        .label-wrapper { display: flex; justify-content: space-between; align-items: center; font-weight: 600; font-size: 0.9rem; }
 
         .progress-pill {
-            padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-family: monospace; font-weight: bold;
+            padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; font-family: monospace; font-weight: bold;
             background: rgba(242, 139, 130, 0.1); color: #ea4a5a; border: 1px solid rgba(242, 139, 130, 0.2);
         }
         .progress-pill.ready {
             background: rgba(56, 142, 60, 0.15) !important; color: #4caf50 !important; border: 1px solid rgba(56, 142, 60, 0.4) !important;
         }
 
-        input { background-color: #0d1117; border: 1px solid var(--border-color); color: #fff; padding: 10px; border-radius: 6px; font-size: 1rem; }
+        input { background-color: #0d1117; border: 1px solid var(--border-color); color: #fff; padding: 8px 12px; border-radius: 6px; font-size: 0.95rem; }
 
         .btn-record {
             width: 100%; background-color: var(--accent-green); color: white; border: none;
-            padding: 12px; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer;
+            padding: 10px; border-radius: 6px; font-size: 0.95rem; font-weight: bold; cursor: pointer; margin-bottom: 16px;
+            display: flex; justify-content: space-between; align-items: center;
         }
         .btn-record:hover { background-color: #2ea44f; }
+        .inline-counter { background: rgba(0,0,0,0.3); padding: 2px 8px; border-radius: 4px; font-family: monospace; font-size: 0.85rem; }
 
-        .status-box {
-            margin-top: 20px; width: 100%; background: #090d13; border: 1px solid var(--border-color);
-            border-radius: 6px; padding: 16px; box-sizing: border-box; font-family: monospace; flex: 1; overflow-y: auto;
+        /* COMPACT REGISTRY LIST (LEFT BOTTOM) */
+        .vocabulary-wrapper { display: flex; flex-direction: column; width: 100%; flex: 1; min-height: 0; }
+        .vocab-list { flex: 1; overflow-y: auto; width: 100%; display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+        .vocab-item { 
+            display: flex; justify-content: space-between; align-items: center; 
+            background: #0d1117; border: 1px solid var(--border-color); 
+            padding: 8px 12px; border-radius: 6px; font-size: 0.88rem;
         }
-
-        .counter-highlight { font-size: 3rem; font-weight: bold; color: var(--accent-blue); margin: 20px 0 10px 0; }
+        .vocab-word { font-weight: 600; color: #fff; font-family: monospace; }
+        .vocab-count-badge {
+            font-size: 0.75rem; font-family: monospace; padding: 1px 6px; border-radius: 6px; font-weight: bold;
+        }
     </style>
 </head>
 <body>
@@ -89,7 +131,7 @@
     <header>
         <div>
             <h1>Mudrā Gesture Recording Studio</h1>
-            <p style="margin: 4px 0 0 0; color: var(--text-muted);">Acquire matrix sequences for network dictionary enhancement</p>
+            <p>Acquire matrix sequences for network dictionary enhancement</p>
         </div>
         <a href="/" class="btn-back">⬅ Return to Dashboard</a>
     </header>
@@ -100,22 +142,21 @@
                 <video class="input_video" autoplay playsinline style="display:none;"></video>
                 <canvas class="output_canvas" width="640" height="480"></canvas>
             </div>
-            <div class="counter-highlight" id="frame_counter">0 / 30</div>
-            <div style="color: var(--text-muted); font-size: 0.95rem;">Frames Captured for Active Sample</div>
+            
+            <div class="vocabulary-wrapper">
+                <div style="color: #fff; font-weight: 700; font-size: 0.95rem; border-bottom: 1px solid var(--border-color); padding-bottom: 6px;">
+                    📊 Local Corpus Vocabulary Directory
+                </div>
+                
+                <div class="vocab-list" id="vocab_list_container">
+                    <div style="color: var(--text-muted); font-size: 0.85rem; font-style: italic; text-align: center; margin-top: 20px;">
+                        No dictionary tracking entries indexed yet...
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="panel" style="align-items: flex-start;">
-            <div style="width: 100%; background: rgba(88, 166, 255, 0.08); border: 1px solid rgba(88, 166, 255, 0.3); border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; box-sizing: border-box;">
-                <div style="color: var(--accent-blue); font-weight: 700; font-size: 0.95rem; margin-bottom: 6px;">
-                    ℹ️ Automated MLOps Pipeline Notice
-                </div>
-                <p style="margin: 0; font-size: 0.85rem; color: var(--text-main); line-height: 1.45;">
-                    To introduce a completely new word or optimize an existing gesture, a minimum threshold of 
-                    <strong style="color: #fff; font-weight: 600;">15 sequence JSON documents</strong> must be recorded. 
-                    Once hit, the background compiler script will progressively trigger batch retraining pipelines.
-                </p>
-            </div>
-
+        <div class="panel">
             <div class="form-group">
                 <div class="label-wrapper">
                     <span>Target Action Label Name:</span>
@@ -124,11 +165,14 @@
                 <input type="text" id="action_name" placeholder="e.g., hello, thank you, please...">
             </div>
             
-            <button class="btn-record" id="start_capture_btn">⚡ Start Sequence Record</button>
+            <button class="btn-record" id="start_capture_btn">
+                <span>⚡ Start Sequence Record</span>
+                <span class="inline-counter" id="frame_counter">0 / 30 Frames</span>
+            </button>
             
             <div class="status-box">
-                <div style="color: var(--accent-blue); font-weight: bold; margin-bottom: 8px;">CONSOLE LOGS:</div>
-                <div id="console_output" style="color: var(--text-muted); line-height: 1.4;">Ready for matrix configuration inputs...</div>
+                <div style="color: var(--accent-blue); font-weight: bold; margin-bottom: 4px; font-size: 0.85rem;">LIVE INTERPRETER CONSOLE:</div>
+                <div id="console_output" style="color: var(--text-muted); line-height: 1.4; font-size: 0.82rem;">Ready for matrix configuration inputs...</div>
             </div>
         </div>
     </div>
@@ -142,17 +186,47 @@
         const quotaBadge = document.getElementById('quota_badge');
         const startBtn = document.getElementById('start_capture_btn');
         const consoleOutput = document.getElementById('console_output');
+        const vocabListContainer = document.getElementById('vocab_list_container');
 
         let isCollecting = false;
         let recordedSequence = [];
 
-        // === NEW PROGRESSIVE MATH LOGIC ===
         function getNextTrainingMilestone(currentCount) {
             if (currentCount < 15) return 15;
             if (currentCount < 20) return 20;
             if (currentCount < 30) return 30;
             if (currentCount < 50) return 50;
             return Math.floor(currentCount / 25) * 25 + 25;
+        }
+
+        async function refreshVocabularyList() {
+            try {
+                const response = await fetch('/api/get-all-counts/');
+                const data = await response.json();
+                
+                if (data.status === 'success' && Object.keys(data.counts).length > 0) {
+                    vocabListContainer.innerHTML = '';
+                    
+                    for (const [word, count] of Object.entries(data.counts)) {
+                        const target = getNextTrainingMilestone(count);
+                        const isModelActive = count >= 15;
+                        
+                        const itemHtml = `
+                            <div class="vocab-item">
+                                <span class="vocab-word">🏷️ ${word}</span>
+                                <span class="vocab-count-badge" style="
+                                    background: ${isModelActive ? 'rgba(76, 175, 80, 0.1)' : 'rgba(234, 74, 90, 0.08)'};
+                                    color: ${isModelActive ? '#4caf50' : '#ea4a5a'};
+                                    border: 1px solid ${isModelActive ? 'rgba(76, 175, 80, 0.25)' : 'rgba(234, 74, 90, 0.15)'};
+                                ">
+                                    ${count} / ${target} Samples
+                                </span>
+                            </div>
+                        `;
+                        vocabListContainer.innerHTML += itemHtml;
+                    }
+                }
+            } catch (err) { console.error("Error loading dictionary metrics:", err); }
         }
 
         async function updateLiveDiskCount() {
@@ -178,10 +252,8 @@
                     const count = data.count;
                     const targetMilestone = getNextTrainingMilestone(count);
                     
-                    // Update text dynamically based on the milestone math
                     quotaBadge.innerText = `${count} / ${targetMilestone} Samples`;
                     
-                    // Toggle colors: Red if under 15, Green if 15 or higher
                     if (count >= 15) {
                         quotaBadge.classList.add('ready');
                         quotaBadge.style.backgroundColor = "rgba(76, 175, 80, 0.15)";
@@ -192,6 +264,11 @@
                         quotaBadge.style.backgroundColor = "rgba(242, 139, 130, 0.1)";
                         quotaBadge.style.color = "#ea4a5a";
                         quotaBadge.style.borderColor = "rgba(242, 139, 130, 0.2)";
+                    }
+
+                    if ([15, 20, 30, 50].includes(count) || (count > 50 && (count - 50) % 25 === 0)) {
+                        consoleOutput.innerHTML += `<br><span style="color: #ff9800; font-weight: bold;">[MLOPS AUTOMATION] Retraining triggered at step milestone count (${count} files)!</span>`;
+                        consoleOutput.scrollTop = consoleOutput.scrollHeight;
                     }
                 }
             } catch (err) { console.error("Error fetching live count:", err); }
@@ -207,23 +284,17 @@
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
                 if (window.drawConnectors && window.HAND_CONNECTIONS) {
-                    window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 4});
-                    window.drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 2, radius: 2});
+                    window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 3});
+                    window.drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 1.5, radius: 1.5});
                 }
                 
                 if (isCollecting) {
                     let frameCoords = [];
-                    
                     for (let i = 0; i < landmarks.length; i++) {
-                        frameCoords.push({
-                            x: landmarks[i].x,
-                            y: landmarks[i].y,
-                            z: landmarks[i].z
-                        });
+                        frameCoords.push({ x: landmarks[i].x, y: landmarks[i].y, z: landmarks[i].z });
                     }
-                    
                     recordedSequence.push([frameCoords]);
-                    frameCounter.innerText = `${recordedSequence.length} / 30`;
+                    frameCounter.innerText = `${recordedSequence.length} / 30 Frames`;
                     
                     if (recordedSequence.length === 30) {
                         isCollecting = false;
@@ -236,7 +307,7 @@
 
         async function saveSampleSequence() {
             const label = actionInput.value.trim().toLowerCase();
-            consoleOutput.innerHTML += `<br><span style="color: var(--accent-blue)">[PROCESSING] Uploading matrix payload to local server...</span>`;
+            consoleOutput.innerHTML += `<br><span style="color: var(--accent-blue)">[PROCESSING] Uploading matrix payload...</span>`;
 
             try {
                 const response = await fetch('/api/save-sequence/', {
@@ -247,19 +318,19 @@
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    consoleOutput.innerHTML += `<br><span style="color: var(--accent-green)">[DUMP SUCCESS] Saved file: <b>${data.file_name}</b></span>`;
-                    
-                    // Trigger the UI count update right after a successful save!
-                    updateLiveDiskCount();
-                    
+                    consoleOutput.innerHTML += `<br><span style="color: var(--accent-green)">[SUCCESS] Saved file: <b>${data.file_name}</b></span>`;
+                    await updateLiveDiskCount();
+                    refreshVocabularyList();
                 } else {
-                    consoleOutput.innerHTML += `<br><span style="color: #ea4a5a">[DUMP FAILED] Server rejected package: ${data.message}</span>`;
+                    consoleOutput.innerHTML += `<br><span style="color: #ea4a5a">[FAILED] Server rejection: ${data.message}</span>`;
                 }
             } catch (err) {
-                consoleOutput.innerHTML += `<br><span style="color: #ea4a5a">[NETWORK ERROR] Could not reach server file-system pipeline.</span>`;
+                consoleOutput.innerHTML += `<br><span style="color: #ea4a5a">[ERROR] Failed to reach backend pipeline file system.</span>`;
             }
 
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
             recordedSequence = [];
+            frameCounter.innerText = `0 / 30 Frames`;
             startBtn.disabled = false;
             startBtn.style.opacity = "1";
         }
@@ -269,14 +340,18 @@
                 alert("Please enter a valid target action label name before recording.");
                 return;
             }
-            consoleOutput.innerHTML = `Starting tracking sequence in 1 second... Hold gesture posture steady!`;
+            consoleOutput.innerHTML += `<br>Initializing recording sequence tracker context... hold position still!`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
             startBtn.disabled = true; startBtn.style.opacity = "0.5";
             
             setTimeout(() => {
                 recordedSequence = []; isCollecting = true;
-                consoleOutput.innerHTML = `<span style="color: #ea4a5a">[RECORDING] Streaming coordinate frames...</span>`;
+                consoleOutput.innerHTML += `<br><span style="color: #ea4a5a">[RECORDING ACTIVATED] Transmitting spatial frames...</span>`;
+                consoleOutput.scrollTop = consoleOutput.scrollHeight;
             }, 1000);
         });
+
+        refreshVocabularyList();
 
         const HandsClass = window.Hands || (window.mpHands ? window.mpHands.Hands : null);
         if (HandsClass) {
@@ -291,7 +366,6 @@
                 camera.start().catch(err => console.error("Camera failed:", err));
             }
         }
-        
     </script>
 </body>
 </html>

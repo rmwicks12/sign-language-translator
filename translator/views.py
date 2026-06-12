@@ -84,8 +84,9 @@ def save_captured_sequence(request):
             file_path = os.path.join(DATASET_DIR, file_name)
 
             # Write the raw coordinate matrices structure into a plain text JSON file
+            # FIXED: Made sure it saves with 4-space indents for human-readability on disk
             with open(file_path, 'w') as json_file:
-                json.dump(sequence, json_file)
+                json.dump(sequence, json_file, indent=4)
                 
             print(f"[DATA STUDIO] Legacy JSON format dumped: {file_path}")
 
@@ -129,3 +130,28 @@ def get_dataset_count(request):
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
             
     return JsonResponse({'status': 'error', 'message': 'POST required'}, status=405)
+
+
+# === NEW: AGGREGATED CORPUS COUNT API FOR SIDEBAR REGISTRY ===
+def get_all_counts(request):
+    """
+    Scans the dataset folder and returns an aggregated list of 
+    all recorded words and their total sequence counts.
+    """
+    try:
+        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        DATASET_DIR = os.path.join(BASE_DIR, 'dataset')
+        counts = {}
+        
+        if os.path.exists(DATASET_DIR):
+            files = [f for f in os.listdir(DATASET_DIR) if f.endswith('.json')]
+            for file in files:
+                if '_' in file:
+                    prefix = file.split('_')[0]
+                    counts[prefix] = counts.get(prefix, 0) + 1
+                    
+        # Sort alphabetically for a clean UI presentation layout
+        sorted_counts = dict(sorted(counts.items()))
+        return JsonResponse({'status': 'success', 'counts': sorted_counts})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
