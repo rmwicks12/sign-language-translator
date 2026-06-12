@@ -52,6 +52,31 @@ def normalize_frame(frame_coordinates):
         
     return normalized
 
+# === DYNAMIC SEQUENCE INTERPOLATION ENGINE ===
+def interpolate_sequence(sequence, target_frames=30):
+    """
+    Dynamically resamples an uneven sequence of coordinate frames
+    to a fixed frame count using 1D linear interpolation curves.
+    """
+    current_frames = len(sequence)
+    if current_frames == target_frames:
+        return np.array(sequence)
+        
+    sequence = np.array(sequence)
+    original_timesteps = np.linspace(0, 1, current_frames)
+    target_timesteps = np.linspace(0, 1, target_frames)
+    
+    interpolated_matrix = np.zeros((target_frames, sequence.shape[1]))
+    
+    # Interpolate each of the 63 landmark features independently across time
+    for feature_idx in range(sequence.shape[1]):
+        interpolated_matrix[:, feature_idx] = np.interp(
+            target_timesteps, 
+            original_timesteps, 
+            sequence[:, feature_idx]
+        )
+    return interpolated_matrix
+
 # === DATA UNWRAPPING ENGINE ===
 def load_real_dataset():
     sequences, labels = [], []
@@ -78,7 +103,7 @@ def load_real_dataset():
                 
             window_sequences = []
             
-            # Loop through each of the 30 frames
+            # Loop through each frame in the raw file
             for frame in raw_frames:
                 frame_coordinates = []
                 
@@ -100,21 +125,21 @@ def load_real_dataset():
                 
                 # Context Layer 2: Direct fallback if data is structured flat without list wrappers
                 elif isinstance(frame, dict) and 'x' in frame:
-                    if isinstance(frame, dict) and 'x' in frame:
-                        frame_coordinates.extend([frame['x'], frame['y'], frame['z']])
+                    frame_coordinates.extend([frame['x'], frame['y'], frame['z']])
 
                 # Check if this single frame successfully unboxed all 63 coordinates
                 if len(frame_coordinates) == DATA_POINTS_PER_FRAME:
-                    # Spatial Normalization layer scales coords before saving to window matrix
+                    # Apply spatial normalization immediately to keep data position-independent
                     normalized_coords = normalize_frame(frame_coordinates)
                     window_sequences.append(normalized_coords)
             
-            # Verify the sequence matches your exact 30-frame window requirement
-            if len(window_sequences) == SEQUENCE_LENGTH:
-                sequences.append(window_sequences)
+            # FIXED: Accept relaxed frame bounds (10 to 60) and interpolate them to exactly 30 frames
+            if 10 <= len(window_sequences) <= 60:
+                final_sequence = interpolate_sequence(window_sequences, target_frames=SEQUENCE_LENGTH)
+                sequences.append(final_sequence)
                 labels.append(label_map[prefix])
             else:
-                print(f"[DATA WARNING] File {file_name} only extracted {len(window_sequences)}/30 valid frames. Skipping.")
+                print(f"[DATA WARNING] File {file_name} has out-of-bounds frame length ({len(window_sequences)}). Skipping.")
                 skipped_files_count += 1
                 
         except Exception as e:
