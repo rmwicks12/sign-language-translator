@@ -112,7 +112,7 @@
                 <p style="margin: 0; font-size: 0.85rem; color: var(--text-main); line-height: 1.45;">
                     To introduce a completely new word or optimize an existing gesture, a minimum threshold of 
                     <strong style="color: #fff; font-weight: 600;">15 sequence JSON documents</strong> must be recorded. 
-                    Once hit, the background compiler script will automatically trigger retraining pipelines.
+                    Once hit, the background compiler script will progressively trigger batch retraining pipelines.
                 </p>
             </div>
 
@@ -146,6 +146,15 @@
         let isCollecting = false;
         let recordedSequence = [];
 
+        // === NEW PROGRESSIVE MATH LOGIC ===
+        function getNextTrainingMilestone(currentCount) {
+            if (currentCount < 15) return 15;
+            if (currentCount < 20) return 20;
+            if (currentCount < 30) return 30;
+            if (currentCount < 50) return 50;
+            return Math.floor(currentCount / 25) * 25 + 25;
+        }
+
         async function updateLiveDiskCount() {
             const label = actionInput.value.trim().toLowerCase();
             if (!label) {
@@ -153,6 +162,7 @@
                 quotaBadge.classList.remove('ready');
                 quotaBadge.style.backgroundColor = "rgba(242, 139, 130, 0.1)";
                 quotaBadge.style.color = "#ea4a5a";
+                quotaBadge.style.borderColor = "rgba(242, 139, 130, 0.2)";
                 return;
             }
 
@@ -165,16 +175,23 @@
                 const data = await response.json();
                 
                 if (data.status === 'success') {
-                    quotaBadge.innerText = `${data.count} / 15 Samples`;
+                    const count = data.count;
+                    const targetMilestone = getNextTrainingMilestone(count);
                     
-                    if (data.count >= 15) {
+                    // Update text dynamically based on the milestone math
+                    quotaBadge.innerText = `${count} / ${targetMilestone} Samples`;
+                    
+                    // Toggle colors: Red if under 15, Green if 15 or higher
+                    if (count >= 15) {
                         quotaBadge.classList.add('ready');
                         quotaBadge.style.backgroundColor = "rgba(76, 175, 80, 0.15)";
                         quotaBadge.style.color = "#4caf50";
+                        quotaBadge.style.borderColor = "rgba(76, 175, 80, 0.4)";
                     } else {
                         quotaBadge.classList.remove('ready');
-                        quotaBadge.style.backgroundColor = "rgba(210, 153, 34, 0.1)";
-                        quotaBadge.style.color = "var(--warn-orange)";
+                        quotaBadge.style.backgroundColor = "rgba(242, 139, 130, 0.1)";
+                        quotaBadge.style.color = "#ea4a5a";
+                        quotaBadge.style.borderColor = "rgba(242, 139, 130, 0.2)";
                     }
                 }
             } catch (err) { console.error("Error fetching live count:", err); }
@@ -197,7 +214,6 @@
                 if (isCollecting) {
                     let frameCoords = [];
                     
-                    // FIXED: Rebuilt array tracking structure to map explicit landmark dictionaries
                     for (let i = 0; i < landmarks.length; i++) {
                         frameCoords.push({
                             x: landmarks[i].x,
@@ -206,7 +222,6 @@
                         });
                     }
                     
-                    // FIXED: Wrapped frame array inside an inner nesting layout to replicate legacy structural layout rows perfectly
                     recordedSequence.push([frameCoords]);
                     frameCounter.innerText = `${recordedSequence.length} / 30`;
                     
@@ -232,8 +247,11 @@
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    consoleOutput.innerHTML += `<br><span style="color: var(--accent-green)">[DUMP SUCCESS] Saved file with legacy splits: <b>${data.file_name}</b></span>`;
+                    consoleOutput.innerHTML += `<br><span style="color: var(--accent-green)">[DUMP SUCCESS] Saved file: <b>${data.file_name}</b></span>`;
+                    
+                    // Trigger the UI count update right after a successful save!
                     updateLiveDiskCount();
+                    
                 } else {
                     consoleOutput.innerHTML += `<br><span style="color: #ea4a5a">[DUMP FAILED] Server rejected package: ${data.message}</span>`;
                 }
@@ -273,6 +291,7 @@
                 camera.start().catch(err => console.error("Camera failed:", err));
             }
         }
+        
     </script>
 </body>
 </html>

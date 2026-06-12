@@ -127,9 +127,10 @@ X_train, X_val, y_train, y_val = train_test_split(X, y_categorical, test_size=0.
 # ========================================================
 # Neural network architecture grows dynamically based on the length of ACTIONS
 model = Sequential([
-    LSTM(64, return_sequences=True, activation='relu', input_shape=(SEQUENCE_LENGTH, DATA_POINTS_PER_FRAME)),
+    # FIXED: Removed activation='relu' to restore mathematically stable 'tanh' defaults
+    LSTM(64, return_sequences=True, input_shape=(SEQUENCE_LENGTH, DATA_POINTS_PER_FRAME)),
     Dropout(0.2),
-    LSTM(128, return_sequences=False, activation='relu'),
+    LSTM(64, return_sequences=False),
     Dropout(0.2),
     Dense(64, activation='relu'),
     Dense(len(ACTIONS), activation='softmax')  # <-- DYNAMIC LAYER SCALE OUTPUT FIX
@@ -138,7 +139,9 @@ model = Sequential([
 model.compile(optimizer='Adam', loss='categorical_crossentropy', metrics=['categorical_accuracy'])
 
 print(f"\nBeginning real training epochs on your custom landmarks for {len(ACTIONS)} words...")
-model.fit(X_train, y_train, epochs=40, batch_size=4, validation_data=(X_val, y_val))
+
+# FIXED: Increased epochs to 80 and adjusted batch size to allow gradients to properly settle
+model.fit(X_train, y_train, epochs=80, batch_size=8, validation_data=(X_val, y_val))
 
 # Export the intelligent engine
 MODEL_NAME = 'mudra_lstm_model.h5'

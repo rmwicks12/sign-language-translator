@@ -5,23 +5,35 @@ import time
 import subprocess
 from django.apps import AppConfig
 
+def get_next_training_threshold(current_baseline):
+    """
+    Calculates the next progressive milestone for model training.
+    Prevents model thrashing by batching new entries exponentially.
+    """
+    if current_baseline < 15:
+        return 15
+    elif current_baseline < 20:
+        return 20
+    elif current_baseline < 30:
+        return 30
+    elif current_baseline < 50:
+        return 50
+    else:
+        # After 50, batch train every 25 new samples to keep the model sharp
+        return current_baseline + 25
+
 class TranslatorConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
     name = 'translator'
 
     def ready(self):
         """Triggers when the Django web service reloads or initializes."""
-        # Django runserver runs two processes to facilitate hot-reloads.
-        # This check ensures our background thread watcher only kicks off once!
         if os.environ.get('RUN_MAIN') == 'true':
             
-            # FIXED: Wrapped inside a separate launching pipeline to avoid blocking or racing main memory
             def delayed_daemon_launch():
-                # Let Django completely register consumers and ASGI routing attributes first
                 time.sleep(2.0)
                 self.start_dataset_monitor_loop()
 
-            # Initialize a non-blocking background timer thread layout
             startup_worker = threading.Thread(target=delayed_daemon_launch, daemon=True)
             startup_worker.start()
 
@@ -34,7 +46,6 @@ class TranslatorConfig(AppConfig):
         TRAIN_SCRIPT_PATH = os.path.join(BASE_DIR, 'train_model.py')
         
         # === SMART INITIALIZATION PASS ===
-        # Count what already exists on disk right now so we don't train on old data
         last_known_counts = {}
         if os.path.exists(DATASET_DIR):
             initial_files = [f for f in os.listdir(DATASET_DIR) if f.endswith('.json')]
@@ -47,31 +58,31 @@ class TranslatorConfig(AppConfig):
 
         while True:
             try:
-                time.sleep(5)  # Quietly evaluate disk state once every 5 seconds
+                time.sleep(5)
                 
                 if not os.path.exists(DATASET_DIR):
                     continue
 
                 all_files = [f for f in os.listdir(DATASET_DIR) if f.endswith('.json')]
                 
-                # Gather current file counts grouped by gesture word prefix
                 current_counts = {}
                 for file in all_files:
                     if '_' in file:
                         prefix = file.split('_')[0]
                         current_counts[prefix] = current_counts.get(prefix, 0) + 1
 
-                # Evaluate changes against our disk baseline
+                # Evaluate changes against our progressive milestones
                 for prefix, current_count in current_counts.items():
                     baseline_count = last_known_counts.get(prefix, 0)
                     
-                    # TRIGGER CONDITION: 
-                    # 1. Must have crossed the 15-file minimum threshold overall.
-                    # 2. The current count must be HIGHER than our baseline (a new file was just saved!)
-                    if current_count >= 15 and current_count > baseline_count:
-                        print(f"\n[MLOPS TRIGGER] New sequence detected for '{prefix}' ({current_count}/15 files). Initiating background training...")
+                    # Calculate exactly what number we need to hit to trigger the next train
+                    target_threshold = get_next_training_threshold(baseline_count)
+                    
+                    # TRIGGER CONDITION: Have we crossed the target milestone?
+                    if current_count >= target_threshold:
+                        print(f"\n[MLOPS TRIGGER] Milestone reached for '{prefix}' ({current_count} files). Target was {target_threshold}. Initiating background training...")
                         
-                        # Update our baseline instantly so it doesn't trigger again on the next loop iteration
+                        # Update baseline instantly to the new count so it waits for the NEXT threshold
                         last_known_counts[prefix] = current_count
 
                         if os.path.exists(TRAIN_SCRIPT_PATH):
@@ -86,7 +97,7 @@ class TranslatorConfig(AppConfig):
                         else:
                             print(f"[MLOPS ERROR] Background train_model.py missing at '{TRAIN_SCRIPT_PATH}'")
                             
-                # Sync any newly introduced words into our baseline tracking maps safely
+                # Sync any newly introduced words into our tracking maps safely
                 for prefix, current_count in current_counts.items():
                     if prefix not in last_known_counts:
                         last_known_counts[prefix] = current_count
