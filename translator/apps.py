@@ -14,7 +14,16 @@ class TranslatorConfig(AppConfig):
         # Django runserver runs two processes to facilitate hot-reloads.
         # This check ensures our background thread watcher only kicks off once!
         if os.environ.get('RUN_MAIN') == 'true':
-            threading.Thread(target=self.start_dataset_monitor_loop, daemon=True).start()
+            
+            # FIXED: Wrapped inside a separate launching pipeline to avoid blocking or racing main memory
+            def delayed_daemon_launch():
+                # Let Django completely register consumers and ASGI routing attributes first
+                time.sleep(2.0)
+                self.start_dataset_monitor_loop()
+
+            # Initialize a non-blocking background timer thread layout
+            startup_worker = threading.Thread(target=delayed_daemon_launch, daemon=True)
+            startup_worker.start()
 
     def start_dataset_monitor_loop(self):
         """A dedicated background thread tracking dataset file increments for auto-retraining."""
@@ -22,9 +31,9 @@ class TranslatorConfig(AppConfig):
         
         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         DATASET_DIR = os.path.join(BASE_DIR, 'dataset')
-        TRAIN_SCRIPT_PATH = os.path.join(BASE_DIR, 'train_model.py') # Kept your custom name
+        TRAIN_SCRIPT_PATH = os.path.join(BASE_DIR, 'train_model.py')
         
-        # === SMART INITALIZATION PASS ===
+        # === SMART INITIALIZATION PASS ===
         # Count what already exists on disk right now so we don't train on old data
         last_known_counts = {}
         if os.path.exists(DATASET_DIR):

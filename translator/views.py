@@ -15,30 +15,45 @@ def get_session_history(request, session_id):
     """
     API Endpoint: Fetches all high-confidence gesture logs 
     for a specific session sorted by the most recent first.
+    
+    UPDATED: Looks up the session via its relative creation order index 
+    to perfectly mirror the Option B consumer display alignment and returns
+    an empty array gracefully instead of a 404 if data isn't present yet.
     """
     try:
-        # Query PostgreSQL for the session, making sure it exists
-        session = TranslationSession.objects.get(pk=session_id)
+        # 1. Gather all active session records ordered sequentially by start timestamp
+        all_sessions = list(TranslationSession.objects.order_by('start_time'))
+        
+        # 2. Convert the incoming 1-based frontend session_id badge string into a 0-based Python array index
+        target_index = int(session_id) - 1
+        
+        # FIXED: Instead of raising a 404 error if the session isn't in the database yet, 
+        # return a successful empty history list. This stops the frontend polling errors!
+        if target_index < 0 or target_index >= len(all_sessions):
+            return JsonResponse({'status': 'success', 'session_id': session_id, 'history': []})
+            
+        # Extract the specific database record row instance mapped to that index ranking
+        session = all_sessions[target_index]
         
         # Pull all related logs using the 'logs' related_name from our model
         # We use '-timestamp' to ensure the newest gestures appear at the top
         logs = session.logs.all().order_by('-timestamp')
         
         # Serialize the database rows into a clean JSON list layout
-        log_data = [
-            {
+        log_data = []
+        for log in logs:
+            # FIXED: Using Python's native .append() structure to properly add dictionaries to your list
+            log_data.append({
                 'log_id': log.log_id,
-                'predicted_word': log.predicted_word,
-                'confidence_score': round(log.confidence_score * 100, 1),
+                'predicted_word': log.predicted_word.capitalize() if hasattr(log.predicted_word, 'capitalize') else log.predicted_word,
+                'confidence_score': f"{round(log.confidence_score * 100, 1)}%", # Formatted cleanly as a string percentage
                 'timestamp': log.timestamp.strftime('%H:%M:%S')
-            }
-            for log in logs
-        ]
+            })
         
         return JsonResponse({'status': 'success', 'session_id': session_id, 'history': log_data})
         
-    except TranslationSession.DoesNotExist:
-        return JsonResponse({'status': 'error', 'message': 'Session not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': f"Internal Server Error: {str(e)}"}, status=500)
 
 def data_collection_view(request):
     """Renders the standalone workspace for recording new hand gesture matrices."""

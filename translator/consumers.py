@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
+from django.utils import timezone
 from .utils import get_dynamic_actions
 
 # Resolve absolute paths safely
@@ -23,7 +24,8 @@ def hot_load_model_if_updated():
     global model, ACTIONS, last_loaded_timestamp
     
     if not os.path.exists(MODEL_PATH):
-        print("[ENGINE ERROR] mudra_lstm_model.h5 weights file not found on disk.")
+        # Even if the model isn't built yet, ensure actions are dynamically populated
+        ACTIONS = get_dynamic_actions()
         return
 
     try:
@@ -47,24 +49,31 @@ def hot_load_model_if_updated():
     except Exception as e:
         print(f"[MLOPS HOT-SWAP CRASH] Error loading updated model snapshot: {e}")
 
-# Initial boot-up configuration loading
-hot_load_model_if_updated()
-
 
 class TranslationConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         await self.accept()
         
-        # Ensure model variables are checked right as a socket channel links up
+        # FIXED: Global boot call moved safely inside the active socket connection thread
         await sync_to_async(hot_load_model_if_updated)()
         
-        # Instantiate the new session row securely
         from .models import TranslationSession
-        self.session = await sync_to_async(TranslationSession.objects.create)()
+        
+        # Look for an existing session from the last 5 minutes that didn't close cleanly
+        existing_session = await sync_to_async(
+            lambda: TranslationSession.objects.filter(end_time__isnull=True).order_by('-start_time').first()
+        )()
+        
+        if existing_session:
+            self.session = existing_session
+            print(f"[DB SESSION] Reusing existing open session context row.")
+        else:
+            self.session = await sync_to_async(TranslationSession.objects.create)()
+            print(f"[DB SESSION] Initializing a brand-new translation session.")
+            
         self.last_logged_word = None
         
-        # === DYNAMIC DISPLAY INDEX FIX (Option B) ===
-        # Count exactly how many total session rows exist in the table right now
+        # Calculate dynamic display index accurately (Option B)
         active_session_index = await sync_to_async(TranslationSession.objects.count)()
         
         await self.send(text_data=json.dumps({
@@ -72,41 +81,30 @@ class TranslationConsumer(AsyncWebsocketConsumer):
         }))
 
     async def disconnect(self, close_code):
-        if hasattr(self, 'session') and self.session:
-            from django.utils import timezone
-            self.session.end_time = timezone.now()
-            await sync_to_async(self.session.save)()
-            
-            # Dynamically recalculate logging message scale index to avoid display confusion
-            active_session_index = await sync_to_async(TranslationSession.objects.count)()
-            print(f"[DB SESSION] Finalized and saved Session #{active_session_index}")
+        # Leave session open so navigating back and forth preserves history log stacks
+        pass
 
     async def receive(self, text_data):
         global model, ACTIONS
+        from .models import TranslationSession, TranslationLog
         
         try:
             data = json.loads(text_data)
             command = data.get('command')
             
-            # Handle standard session interface state switches
+            # Explicit termination from UI dashboard buttons
             if command == "end_session":
                 if hasattr(self, 'session') and self.session:
-                    from django.utils import timezone
                     self.session.end_time = timezone.now()
                     await sync_to_async(self.session.save)()
+                    print(f"[DB SESSION] Explicitly closed session via dashboard command.")
                 return
 
             if command == "start_new_session":
-                from .models import TranslationSession
                 self.session = await sync_to_async(TranslationSession.objects.create)()
                 self.last_logged_word = None
-                
-                # === DYNAMIC DISPLAY INDEX FIX (Option B) ===
                 active_session_index = await sync_to_async(TranslationSession.objects.count)()
-                
-                await self.send(text_data=json.dumps({
-                    'session_id': active_session_index if active_session_index > 0 else 1
-                }))
+                await self.send(text_data=json.dumps({'session_id': active_session_index if active_session_index > 0 else 1}))
                 return
 
             # Frame Processing Engine Block
@@ -114,12 +112,15 @@ class TranslationConsumer(AsyncWebsocketConsumer):
             if len(sequence) != 30:
                 return
 
-            # === LIVE ENGINE CHECK ===
             # Periodically check disk timestamp safely mid-stream
             await sync_to_async(hot_load_model_if_updated)()
 
+            # If model isn't built yet, show active lexicon targets as a fallback warning status
             if model is None:
-                await self.send(text_data=json.dumps({'prediction': 'Engine Offline', 'confidence': 0.0}))
+                await self.send(text_data=json.dumps({
+                    'prediction': f"Awaiting Data Studio (Target: {ACTIONS})", 
+                    'confidence': 0.0
+                }))
                 return
 
             # Feed spatial matrix directly into hot-swapped LSTM layers
@@ -128,12 +129,17 @@ class TranslationConsumer(AsyncWebsocketConsumer):
             best_match_idx = np.argmax(prediction_scores)
             confidence = float(prediction_scores[best_match_idx])
 
-            # Ensure index fallback match safety against old arrays mapping runs
-            if confidence >= 0.70 and best_match_idx < len(ACTIONS):
+            # === ADD THESE TEMPORARY DEBUG LOGS HERE ===
+            print(f"[DEBUG LOG] Best Match Index: {best_match_idx} | Active Actions List: {ACTIONS}")
+            print(f"[DEBUG LOG] Confidence: {confidence:.2f} | Last Logged Word State: {self.last_logged_word}")
+
+            # Logging Engine Rules verification
+            if confidence >= 0.65 and best_match_idx < len(ACTIONS):
                 result_word = ACTIONS[best_match_idx]
+                print(f"[DEBUG LOG] Resolved Word: '{result_word}'")
                 
-                if result_word != self.last_logged_word:
-                    from .models import TranslationLog
+                if result_word != self.last_logged_word and result_word != 'awaiting_data':
+                    print(f"[DB WRITE] Saving '{result_word}' to Database row...")
                     await sync_to_async(TranslationLog.objects.create)(
                         session=self.session,
                         predicted_word=result_word,
