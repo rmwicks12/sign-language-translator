@@ -51,7 +51,6 @@
             font-size: 0.9rem;
         }
 
-        /* Split-Screen Dashboard Layout */
         .dashboard-container {
             display: grid;
             grid-template-columns: 1.2fr 0.8fr;
@@ -70,13 +69,11 @@
             box-sizing: border-box;
         }
 
-        /* Left Pane: Camera Vision Space */
         .vision-pane {
             align-items: center;
             justify-content: flex-start;
         }
 
-        /* Control Bar Styles */
         .control-bar {
             width: 100%;
             max-width: 640px;
@@ -100,32 +97,11 @@
             gap: 8px;
         }
 
-        .btn-primary {
-            background-color: #21262d;
-            color: var(--accent-blue);
-            border-color: var(--border-color);
-        }
-
-        .btn-primary:hover {
-            background-color: #30363d;
-            border-color: #8b949e;
-        }
-
-        .btn-primary.active-tracking {
-            background-color: rgba(88, 166, 255, 0.15);
-            border-color: var(--accent-blue);
-        }
-
-        .btn-danger {
-            background-color: #21262d;
-            color: var(--accent-red);
-            border-color: var(--border-color);
-        }
-
-        .btn-danger:hover {
-            background-color: rgba(218, 54, 51, 0.15);
-            border-color: var(--accent-red);
-        }
+        .btn-primary { background-color: #21262d; color: var(--accent-blue); border-color: var(--border-color); }
+        .btn-primary:hover { background-color: #30363d; border-color: #8b949e; }
+        .btn-primary.active-tracking { background-color: rgba(88, 166, 255, 0.15); border-color: var(--accent-blue); }
+        .btn-danger { background-color: #21262d; color: var(--accent-red); border-color: var(--border-color); }
+        .btn-danger:hover { background-color: rgba(218, 54, 51, 0.15); border-color: var(--accent-red); }
 
         .video-container {
             position: relative;
@@ -162,77 +138,18 @@
             letter-spacing: 0.5px;
         }
 
-        /* Right Pane: Analytics History Logs */
-        .analytics-pane {
-            min-height: 0;
-        }
+        .analytics-pane { min-height: 0; }
+        .analytics-pane h2 { margin: 0 0 16px 0; font-size: 1.3rem; color: #fff; display: flex; justify-content: space-between; align-items: center; }
 
-        .analytics-pane h2 {
-            margin: 0 0 16px 0;
-            font-size: 1.3rem;
-            color: #fff;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        .session-badge { font-size: 0.8rem; background: #1f6feb; padding: 4px 10px; border-radius: 20px; color: #fff; }
+        .session-badge.terminated { background: #484f58; color: var(--text-muted); }
 
-        .session-badge {
-            font-size: 0.8rem;
-            background: #1f6feb;
-            padding: 4px 10px;
-            border-radius: 20px;
-            color: #fff;
-        }
-
-        .session-badge.terminated {
-            background: #484f58;
-            color: var(--text-muted);
-        }
-
-        .log-table-wrapper {
-            box-sizing: border-box;
-            flex: 1;
-            overflow-y: auto;
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            background: #090d13;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-            font-size: 0.95rem;
-        }
-
-        th {
-            background-color: #161b22;
-            position: sticky;
-            top: 0;
-            padding: 12px;
-            color: #fff;
-            font-weight: 600;
-            border-bottom: 2px solid var(--border-color);
-            z-index: 10;
-        }
-
-        td {
-            padding: 12px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        tr:hover td {
-            background-color: #1c2128;
-        }
-
-        .confidence-pill {
-            background: rgba(88, 166, 255, 0.15);
-            color: var(--accent-blue);
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-family: monospace;
-            font-weight: bold;
-        }
+        .log-table-wrapper { flex: 1; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; background: #090d13; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.95rem; }
+        th { background-color: #161b22; position: sticky; top: 0; padding: 12px; color: #fff; font-weight: 600; border-bottom: 2px solid var(--border-color); z-index: 10; }
+        td { padding: 12px; border-bottom: 1px solid var(--border-color); }
+        tr:hover td { background-color: #1c2128; }
+        .confidence-pill { background: rgba(88, 166, 255, 0.15); color: var(--accent-blue); padding: 2px 8px; border-radius: 4px; font-family: monospace; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -250,15 +167,9 @@
     <div class="dashboard-container">
         <div class="panel vision-pane">
             <div class="control-bar">
-                <button class="btn btn-primary active-tracking" id="toggle_track_btn">
-                    <span>⏸ Pause Tracking</span>
-                </button>
-                <button class="btn btn-danger" id="end_session_btn">
-                    <span>🛑 End Session</span>
-                </button>
-                <button class="btn" id="start_session_btn" style="display: none; background-color: #238636; color: #fff;">
-                    <span>🚀 Start New Session</span>
-                </button>
+                <button class="btn btn-primary active-tracking" id="toggle_track_btn"><span>⏸ Pause Tracking</span></button>
+                <button class="btn btn-danger" id="end_session_btn"><span>🛑 End Session</span></button>
+                <button class="btn" id="start_session_btn" style="display: none; background-color: #238636; color: #fff;"><span>🚀 Start New Session</span></button>
             </div>
 
             <div class="video-container">
@@ -272,6 +183,18 @@
                     AI Confidence: <span id="confidence_score" style="color: #fff; font-weight: 600;">0.0</span>%
                 </div>
             </div>
+
+            <!-- === CONTINUOUS RECOGNITION SENTENCE TRAY === -->
+            <div style="width: 100%; max-width: 640px; background: #090d13; padding: 20px; border-radius: 12px; margin-top: 20px; border: 1px solid var(--border-color); text-align: left; box-sizing: border-box;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="color: var(--text-muted); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;">Live Sentence Builder</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="speak_sentence_btn" style="background: #238636; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.85rem;">🔊 Speak</button>
+                        <button id="clear_sentence_btn" style="background: var(--bg-card); color: var(--accent-red); border: 1px solid var(--border-color); padding: 6px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.85rem;">🗑️ Clear</button>
+                    </div>
+                </div>
+                <div id="sentence_display" style="font-size: 1.4rem; font-weight: 600; color: #fff; min-height: 32px; word-wrap: break-word;"></div>
+            </div>
         </div>
 
         <div class="panel analytics-pane">
@@ -279,7 +202,6 @@
                 Translation History 
                 <span class="session-badge" id="session_label">Connecting DB...</span>
             </h2>
-            
             <div class="log-table-wrapper">
                 <table>
                     <thead>
@@ -291,9 +213,7 @@
                     </thead>
                     <tbody id="log_history_rows">
                         <tr>
-                            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 40px;">
-                                Stream tracking data to populate records...
-                            </td>
+                            <td colspan="3" style="text-align: center; color: var(--text-muted); padding: 40px;">Stream tracking data to populate records...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -310,21 +230,23 @@
         const logHistoryRows = document.getElementById('log_history_rows');
         const sessionLabel = document.getElementById('session_label');
         
-        // Control Buttons
         const toggleTrackBtn = document.getElementById('toggle_track_btn');
         const endSessionBtn = document.getElementById('end_session_btn');
         const startSessionBtn = document.getElementById('start_session_btn');
+        
+        // Sentence Builder Variables
+        const sentenceDisplay = document.getElementById('sentence_display');
+        let liveSentence = [];
+        let activeLockWord = null;
 
         let currentSessionId = null;
         let coordinateSequence = [];
         let isHandPresent = false;
         let emptyFrameCount = 0;
         let lastInferenceTime = 0;
-        
         let isTrackingActive = true;
         let isSessionActive = true;
 
-        // Establish WebSocket Connection
         let socket = new WebSocket('ws://' + window.location.host + '/ws/translate/');
         
         socket.onopen = () => {
@@ -352,13 +274,44 @@
                 translationText.innerText = data.prediction;
                 confidenceScore.innerText = (data.confidence * 100).toFixed(1);
                 
-                if (data.prediction !== "Analyzing..." && data.prediction !== "Engine Offline") {
+                // === CONTINUOUS RECOGNITION TYPEWRITER LOGIC ===
+                const predictedWord = data.prediction;
+                
+                // If it's a valid semantic word
+                if (predictedWord !== "Analyzing..." && !predictedWord.includes("Awaiting") && predictedWord !== "...") {
+                    // Only append if it's new (The lock prevents duplicating the same word back to back instantly)
+                    if (predictedWord !== activeLockWord && data.confidence >= 0.65) {
+                        liveSentence.push(predictedWord);
+                        sentenceDisplay.innerText = liveSentence.join(' ');
+                        activeLockWord = predictedWord;
+                    }
+                } else if (predictedWord === "...") {
+                    // If the backend detected "neutral", the user is transitioning! 
+                    // Unlock the variable so they can perform the same sign again.
+                    activeLockWord = null;
+                }
+                
+                // Keep history updated
+                if (predictedWord !== "Analyzing..." && !predictedWord.includes("Awaiting") && predictedWord !== "...") {
                     fetchLatestHistory();
                 }
             }
         };
 
-        // === UPGRADED ONRESULTS LOOP: TRACKS BOTH HANDS SIMULTANEOUSLY INTO A FLAT VECTOR ===
+        // Text-to-Speech Engine
+        document.getElementById('speak_sentence_btn').addEventListener('click', () => {
+            if (liveSentence.length > 0) {
+                const utterance = new SpeechSynthesisUtterance(liveSentence.join(' '));
+                window.speechSynthesis.speak(utterance);
+            }
+        });
+
+        // Clear Sentence Button
+        document.getElementById('clear_sentence_btn').addEventListener('click', () => {
+            liveSentence = [];
+            sentenceDisplay.innerText = '';
+        });
+
         function onResults(results) {
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
@@ -373,7 +326,6 @@
                 emptyFrameCount = 0; 
                 isHandPresent = true;
                 
-                // Draw bones and markers over all visible hands simultaneously
                 for (const landmarks of results.multiHandLandmarks) {
                     if (window.drawConnectors && window.HAND_CONNECTIONS) {
                         window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 3});
@@ -382,47 +334,38 @@
                 }
                 
                 let frameCoords = [];
-                
-                // Unbox Hand 1 (Primary) flat floats directly
                 const hand1 = results.multiHandLandmarks[0];
                 for (let i = 0; i < hand1.length; i++) {
                     frameCoords.push(hand1[i].x, hand1[i].y, hand1[i].z);
                 }
                 
-                // Unbox Hand 2 flat floats with Zero-Padding Workaround Fallback
                 if (results.multiHandLandmarks.length > 1) {
                     const hand2 = results.multiHandLandmarks[1];
                     for (let i = 0; i < hand2.length; i++) {
                         frameCoords.push(hand2[i].x, hand2[i].y, hand2[i].z);
                     }
                 } else {
-                    // Inject 63 float coordinates to pad the missing second hand explicitly
                     for (let i = 0; i < 63; i++) {
                         frameCoords.push(0.0);
                     }
                 }
                 
-                // Push the complete 126-dimension timeline element array block
                 coordinateSequence.push(frameCoords);
                 if (coordinateSequence.length > 30) {
                     coordinateSequence.shift();
                 }
                 
                 const currentTime = Date.now();
-                if (coordinateSequence.length === 30 && 
-                    socket.readyState === WebSocket.OPEN && 
-                    (currentTime - lastInferenceTime > 150)) {
-                    
+                if (coordinateSequence.length === 30 && socket.readyState === WebSocket.OPEN && (currentTime - lastInferenceTime > 150)) {
                     socket.send(JSON.stringify({ 'coordinates': coordinateSequence }));
                     lastInferenceTime = currentTime;
                 }
             } 
             else {
                 emptyFrameCount++;
-                if (emptyFrameCount >= 10) {
+                if (emptyFrameCount >= 25) {
                     isHandPresent = false;
                     coordinateSequence = []; 
-                    
                     translationText.innerText = "No hands detected";
                     translationText.style.color = "var(--text-muted)"; 
                     confidenceScore.innerText = "0.0";
@@ -442,12 +385,8 @@
                         logHistoryRows.innerHTML = data.history.map(log => {
                             const today = new Date().toISOString().split('T')[0];
                             const localTime = new Date(`${today}T${log.timestamp}Z`).toLocaleTimeString('en-IN', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: false
+                                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
                             });
-
                             return `
                                 <tr>
                                     <td style="color: var(--text-muted); font-family: monospace;">${localTime}</td>
@@ -460,105 +399,66 @@
                         logHistoryRows.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 40px;">No logs recorded in this session yet.</td></tr>`;
                     }
                 }
-            } catch (err) {
-                console.error("Error updating history panel:", err);
-            }
+            } catch (err) { }
         }
 
-        // ========================================================
-        // INTERACTIVE CONTROL EVENT LISTENERS
-        // ========================================================
-        
         toggleTrackBtn.addEventListener('click', () => {
             if (!isSessionActive) return;
             isTrackingActive = !isTrackingActive;
-            
             if (isTrackingActive) {
                 toggleTrackBtn.innerHTML = "<span>⏸ Pause Tracking</span>";
                 toggleTrackBtn.classList.add('active-tracking');
                 translationText.innerText = "No hands detected";
-                translationText.style.color = "var(--text-muted)";
             } else {
                 toggleTrackBtn.innerHTML = "<span>▶ Resume Tracking</span>";
                 toggleTrackBtn.classList.remove('active-tracking');
                 translationText.innerText = "Tracking Paused";
-                translationText.style.color = "var(--accent-blue)";
-                confidenceScore.innerText = "0.0";
                 coordinateSequence = [];
             }
         });
 
         endSessionBtn.addEventListener('click', () => {
             if (!isSessionActive) return;
-            
-            const confirmEnd = confirm("Are you sure you want to finalize this translation session?");
-            if (!confirmEnd) return;
-
+            if (!confirm("Are you sure you want to finalize this translation session?")) return;
             isSessionActive = false;
             isTrackingActive = false;
-            
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ 'command': 'end_session' }));
-            }
-            
+            if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ 'command': 'end_session' }));
             endSessionBtn.style.display = "none";
             toggleTrackBtn.style.display = "none";
             startSessionBtn.style.display = "flex";
-            
             sessionLabel.innerText = `Session #${currentSessionId} (Finalized)`;
             sessionLabel.classList.add('terminated');
             translationText.innerText = "Session Concluded";
-            translationText.style.color = "var(--text-muted)";
-            confidenceScore.innerText = "0.0";
         });
 
         startSessionBtn.addEventListener('click', () => {
             if (isSessionActive) return;
-
             coordinateSequence = [];
+            liveSentence = [];
+            sentenceDisplay.innerText = '';
             logHistoryRows.innerHTML = `<tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 40px;">Initializing fresh record metrics...</td></tr>`;
-            
             isSessionActive = true;
             isTrackingActive = true;
-
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.send(JSON.stringify({ 'command': 'start_new_session' }));
-            }
-
+            if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ 'command': 'start_new_session' }));
             startSessionBtn.style.display = "none";
             toggleTrackBtn.style.display = "flex";
             toggleTrackBtn.innerHTML = "<span>⏸ Pause Tracking</span>";
             toggleTrackBtn.classList.add('active-tracking');
             endSessionBtn.style.display = "flex";
-            
             translationText.innerText = "No hands detected";
-            translationText.style.color = "var(--text-muted)";
         });
 
-        // Initialize MediaPipe Camera Pipeline
         const HandsClass = window.Hands || (window.mpHands ? window.mpHands.Hands : null);
         if (HandsClass) {
             const hands = new HandsClass({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
-            
-            // === HARDWARE ACCELERATION UPGRADE FOR MULTI-HAND TRACKING ===
-            hands.setOptions({ 
-                maxNumHands: 2, // Upgraded to scan up to 2 distinct hands simultaneously
-                modelComplexity: 1, 
-                minDetectionConfidence: 0.7, 
-                minTrackingConfidence: 0.7 
-            });
+            hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
             hands.onResults(onResults);
-
             if (window.Camera) {
                 const camera = new window.Camera(videoElement, {
-                    onFrame: async () => { 
-                        if (videoElement.readyState >= 2) {
-                            await hands.send({image: videoElement}); 
-                        }
-                    },
+                    onFrame: async () => { if (videoElement.readyState >= 2) await hands.send({image: videoElement}); },
                     width: 640, height: 480
                 });
-                camera.start().catch(err => console.error("Camera activation failed:", err));
+                camera.start().catch(err => console.error(err));
             }
         }
     </script>
