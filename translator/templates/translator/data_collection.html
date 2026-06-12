@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mudrā | Data Collection Studio</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
+    <style>
+        :root {
+            --bg-main: #0d1117;
+            --bg-card: #161b22;
+            --border-color: #30363d;
+            --text-main: #c9d1d9;
+            --text-muted: #8b949e;
+            --accent-green: #238636;
+            --accent-blue: #58a6ff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            margin: 0;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+        }
+
+        header h1 { margin: 0; font-size: 1.6rem; color: #fff; }
+
+        .btn-back {
+            background-color: #21262d;
+            color: var(--text-main);
+            border: 1px solid var(--border-color);
+            padding: 8px 16px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .btn-back:hover { background-color: #30363d; }
+
+        .studio-layout {
+            display: grid;
+            grid-template-columns: 1.1fr 0.9fr;
+            gap: 24px;
+            flex: 1;
+        }
+
+        .panel {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            aspect-ratio: 4 / 3;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        video, canvas {
+            position: absolute;
+            left: 0; top: 0; width: 100%; height: 100%;
+            transform: scaleX(-1);
+        }
+
+        .form-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            background-color: #0d1117;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        .btn-record {
+            width: 100%;
+            background-color: var(--accent-green);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .status-box {
+            margin-top: 20px;
+            width: 100%;
+            background: #090d13;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            box-sizing: border-box;
+            font-family: monospace;
+        }
+
+        .counter-highlight {
+            font-size: 3rem;
+            font-weight: bold;
+            color: var(--accent-blue);
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>Mudrā Gesture Recording Studio</h1>
+            <p style="margin: 4px 0 0 0; color: var(--text-muted);">Acquire matrix sequences for network dictionary enhancement</p>
+        </div>
+        <a href="/" class="btn-back">⬅ Return to Dashboard</a>
+    </header>
+
+    <div class="studio-layout">
+        <div class="panel">
+            <div class="video-container">
+                <video class="input_video" autoplay playsinline style="display:none;"></video>
+                <canvas class="output_canvas" width="640" height="480"></canvas>
+            </div>
+            <div class="counter-highlight" id="frame_counter">0 / 30</div>
+            <div style="color: var(--text-muted);">Frames Captured for Active Sample</div>
+        </div>
+
+        <div class="panel" style="align-items: flex-start;">
+            <div class="form-group">
+                <label style="font-weight: 600;">Target Action Label Name:</label>
+                <input type="text" id="action_name" placeholder="e.g., hello, thank you, please...">
+            </div>
+            
+            <button class="btn-record" id="start_capture_btn">⚡ Start Sequence Record</button>
+            
+            <div class="status-box">
+                <div style="color: var(--accent-blue); font-weight: bold; margin-bottom: 8px;">CONSOLE LOGS:</div>
+                <div id="console_output" style="color: var(--text-muted); line-height: 1.4;">Ready for matrix configuration inputs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const videoElement = document.querySelector('.input_video');
+        const canvasElement = document.querySelector('.output_canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const frameCounter = document.getElementById('frame_counter');
+        const actionInput = document.getElementById('action_name');
+        const startBtn = document.getElementById('start_capture_btn');
+        const consoleOutput = document.getElementById('console_output');
+
+        let isCollecting = false;
+        let recordedSequence = [];
+
+        function onResults(results) {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                if (window.drawConnectors && window.HAND_CONNECTIONS) {
+                    window.drawConnectors(canvasCtx, landmarks, window.HAND_CONNECTIONS, {color: '#58a6ff', lineWidth: 4});
+                    window.drawLandmarks(canvasCtx, landmarks, {color: '#ffffff', lineWidth: 2, radius: 2});
+                }
+                
+                // If recording countdown triggers, collect spatial array
+                if (isCollecting) {
+                    let frameCoords = [];
+                    for (let i = 0; i < landmarks.length; i++) {
+                        frameCoords.push(landmarks[i].x, landmarks[i].y, landmarks[i].z);
+                    }
+                    
+                    recordedSequence.push(frameCoords);
+                    frameCounter.innerText = `${recordedSequence.length} / 30`;
+                    
+                    if (recordedSequence.length === 30) {
+                        isCollecting = false;
+                        saveSampleSequence();
+                    }
+                }
+            }
+            canvasCtx.restore();
+        }
+
+        async function saveSampleSequence() {
+            const label = actionInput.value.trim().toLowerCase();
+            
+            consoleOutput.innerHTML += `<br><span style="color: var(--accent-blue)">[PROCESSING] Uploading matrix payload to local server...</span>`;
+
+            try {
+                // Post the 30-frame sequence directly to our fresh Django view endpoint
+                const response = await fetch('/api/save-sequence/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        label: label,
+                        sequence: recordedSequence
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    consoleOutput.innerHTML += `<br><span style="color: var(--accent-green)">[DUMP SUCCESS] Saved file: <b>${data.file_name}</b> (Total Samples for '${label}': ${data.sample_count})</span>`;
+                } else {
+                    consoleOutput.innerHTML += `<br><span style="color: #ea4a5a">[DUMP FAILED] Server rejected package: ${data.message}</span>`;
+                }
+            } catch (err) {
+                console.error("Transmission error:", err);
+                consoleOutput.innerHTML += `<br><span style="color: #ea4a5a">[NETWORK ERROR] Could not reach server file-system pipeline.</span>`;
+            }
+
+            // Flush the frame array sequence buffer and reset button state for the next capture run
+            recordedSequence = [];
+            startBtn.disabled = false;
+            startBtn.style.opacity = "1";
+        }
+
+        startBtn.addEventListener('click', () => {
+            if (!actionInput.value.trim()) {
+                alert("Please enter a valid target action label name before recording.");
+                return;
+            }
+            consoleOutput.innerHTML = `Starting tracking sequence in 1 second... Hold gesture posture steady!`;
+            startBtn.disabled = true;
+            startBtn.style.opacity = "0.5";
+            
+            setTimeout(() => {
+                recordedSequence = [];
+                isCollecting = true;
+                consoleOutput.innerHTML = `<span style="color: #ea4a5a">[RECORDING] Streaming coordinate frames...</span>`;
+            }, 1000);
+        });
+
+        const HandsClass = window.Hands || (window.mpHands ? window.mpHands.Hands : null);
+        if (HandsClass) {
+            const hands = new HandsClass({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.7, minTrackingConfidence: 0.7 });
+            hands.onResults(onResults);
+
+            if (window.Camera) {
+                const camera = new window.Camera(videoElement, {
+                    onFrame: async () => { await hands.send({image: videoElement}); },
+                    width: 640, height: 480
+                });
+                camera.start();
+            }
+        }
+    </script>
+</body>
+</html>
