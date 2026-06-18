@@ -1,7 +1,7 @@
 # Mudrā: Real-Time Sign Language Translation System
 
 ## Overview
-Mudrā is a high-throughput, low-latency continuous sign language translation system designed to bridge the communication gap through real-time text and audio feedback. Engineered by Rithwik Girish Murthy, the system decouples frontend spatial feature extraction from backend deep learning inference, establishing a seamless 30-frame sliding window matrix ingestion loop without frame drops or system bottlenecks.
+Mudrā is a high-throughput, low-latency continuous sign language translation system designed to bridge the communication gap through real-time text and audio feedback. Engineered by Rithwik Girish Murthy,Ruban George, Rahul Raj and Sagar K. the system decouples frontend spatial feature extraction from backend deep learning inference, establishing a seamless 30-frame sliding window matrix ingestion loop without frame drops or system bottlenecks.
 
 ## How It Works
 The architectural pipeline follows a highly optimized, asynchronous data flow:
